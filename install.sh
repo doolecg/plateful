@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Larder installer: asks a few questions, writes .env, builds and starts Larder with Docker.
-# Run it from the Larder folder:  ./install.sh
+# Plateful installer: asks a few questions, writes .env, builds and starts Plateful with Docker.
+# Run it from the Plateful folder:  ./install.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -9,17 +9,17 @@ ask() { local reply; read -r -p "$1 " reply; printf '%s' "${reply:-$2}"; }
 secret() { local reply; read -r -s -p "$1 " reply; echo >&2; printf '%s' "$reply"; }
 die() { printf '\n%s\n' "$*" >&2; exit 1; }
 
-bold "Larder installer"
+bold "Plateful installer"
 
 command -v docker >/dev/null || die "Docker isn't installed. Get it from https://docs.docker.com/get-docker/ and run this again."
 docker compose version >/dev/null 2>&1 || die "Docker is installed but 'docker compose' isn't working. Update Docker, then run this again."
 docker info >/dev/null 2>&1 || die "Docker isn't running (or needs sudo). Start Docker Desktop, or try: sudo ./install.sh"
 
 if [ -f .env ]; then
-  keep=$(ask "Larder is already set up here. Keep your current settings and just update? [Y/n]" y)
+  keep=$(ask "Plateful is already set up here. Keep your current settings and just update? [Y/n]" y)
   if [[ "$keep" =~ ^[Yy] ]]; then
-    domain=$(grep -E '^LARDER_DOMAIN=.+' .env | cut -d= -f2- || true)
-    bold "Building and starting Larder..."
+    domain=$(grep -E '^(PLATEFUL|LARDER)_DOMAIN=.+' .env | cut -d= -f2- || true)
+    bold "Building and starting Plateful..."
     if [ -n "$domain" ]; then docker compose --profile cloud up -d --build; else docker compose up -d --build; fi
     bold "Done. Your diary and settings are untouched."
     exit 0
@@ -28,7 +28,7 @@ fi
 
 bold "1. Which AI should read your food?"
 cat <<'EOF'
-Larder sends what you type or photograph to an AI, which turns it into calories.
+Plateful sends what you type or photograph to an AI, which turns it into calories.
 Use whichever you already have:
   1) Claude, with a Pro or Max subscription (no extra cost)
   2) Claude, with an API key from console.anthropic.com (pay per message)
@@ -49,7 +49,7 @@ case "$choice" in
 
 You need a long-lived token for your subscription. If you have Claude Code on a computer,
 run `claude setup-token` there and paste the token below. Or press Enter and the installer
-runs it for you once Larder is built: it shows a link, you sign in to Claude in your browser,
+runs it for you once Plateful is built: it shows a link, you sign in to Claude in your browser,
 and paste the code it gives you back here.
 EOF
     token=$(secret "Paste your token (starts sk-ant-oat, hidden), or press Enter:")
@@ -81,14 +81,14 @@ EOF
     ai=ollama clis=none
     ollama_host=$(ask "Where is Ollama? [http://host.docker.internal:11434, meaning this computer]:" "http://host.docker.internal:11434")
     text_model=$(ask "Model for typed messages, one you've pulled (for example gemma3):" "")
-    [ -n "$text_model" ] || die "Larder needs a model name. Pull one with 'ollama pull gemma3' and run this again."
+    [ -n "$text_model" ] || die "Plateful needs a model name. Pull one with 'ollama pull gemma3' and run this again."
     photo_model=$(ask "Model for photos (Enter for the same; it must be a vision model):" "")
     sees=$(ask "Can that model see pictures? [y/N]:" n)
     [[ "$sees" =~ ^[Yy] ]] || images=false ;;
   7)
     ai=openai clis=none
     ai_url=$(ask "Server address ending in /v1 (llama-server on this computer: http://host.docker.internal:8081/v1):" "")
-    [ -n "$ai_url" ] || die "Larder needs the server's address. Run this again when you have it."
+    [ -n "$ai_url" ] || die "Plateful needs the server's address. Run this again when you have it."
     ai_key=$(secret "API key if it needs one (hidden), or Enter:")
     text_model=$(ask "Model name (Enter if the server only has one):" "")
     photo_model=$(ask "Model for photos (Enter for the same):" "")
@@ -97,7 +97,7 @@ EOF
   8)
     ai=custom
     echo
-    echo "The command must print the JSON Larder asks for. Placeholders: {prompt_file} {prompt} {image} {images} {model}."
+    echo "The command must print the JSON Plateful asks for. Placeholders: {prompt_file} {prompt} {image} {images} {model}."
     ai_command=$(ask "Command:" "")
     [ -n "$ai_command" ] || die "No command given."
     [[ "$ai_command" != *\'* ]] || die "Put a command with single quotes in a script and give the script's path instead."
@@ -122,7 +122,7 @@ if [ "$where" = "2" ]; then
   password=$(ask "Household password (press Enter to make one up):" "")
   # (head closing the pipe early makes tr "fail", hence the || true)
   [ -n "$password" ] || password=$(LC_ALL=C tr -dc 'a-km-np-z2-9' </dev/urandom | head -c 16 || true)
-  # Only Caddy (HTTPS) faces the internet; Larder itself listens on this machine only
+  # Only Caddy (HTTPS) faces the internet; Plateful itself listens on this machine only
   port="127.0.0.1:8080"
 else
   port=$(ask "Port to use [8080]:" 8080)
@@ -130,45 +130,45 @@ fi
 
 umask 077
 cat > .env <<EOF
-LARDER_AI=$ai
-LARDER_CLIS=$clis
-LARDER_TEXT_MODEL=$text_model
-LARDER_PHOTO_MODEL=$photo_model
-LARDER_AI_IMAGES=$images
+PLATEFUL_AI=$ai
+PLATEFUL_CLIS=$clis
+PLATEFUL_TEXT_MODEL=$text_model
+PLATEFUL_PHOTO_MODEL=$photo_model
+PLATEFUL_AI_IMAGES=$images
 CLAUDE_CODE_OAUTH_TOKEN=$token
 ANTHROPIC_API_KEY=$key
 CODEX_API_KEY=$codex_key
 GEMINI_API_KEY=$gemini_key
 OLLAMA_HOST=${ollama_host:-http://host.docker.internal:11434}
-LARDER_AI_URL=$ai_url
-LARDER_AI_KEY=$ai_key
-LARDER_AI_COMMAND='$ai_command'
+PLATEFUL_AI_URL=$ai_url
+PLATEFUL_AI_KEY=$ai_key
+PLATEFUL_AI_COMMAND='$ai_command'
 TZ=$tz
-LARDER_PORT=$port
-LARDER_PASSWORD=$password
-LARDER_DOMAIN=$domain
+PLATEFUL_PORT=$port
+PLATEFUL_PASSWORD=$password
+PLATEFUL_DOMAIN=$domain
 EOF
 mkdir -p data/home
 
-bold "Building Larder (the first time takes a few minutes)..."
+bold "Building Plateful (the first time takes a few minutes)..."
 docker compose build
 
 if [ "$login" = "claude" ]; then
   bold "Signing in to Claude"
-  docker compose run --rm --no-deps larder claude setup-token || true
+  docker compose run --rm --no-deps plateful claude setup-token || true
   token=$(secret "Now paste the token it printed (hidden):")
   [ -n "$token" ] || die "No token given. Put it in .env as CLAUDE_CODE_OAUTH_TOKEN, then run: docker compose up -d"
   sed -i.bak "s|^CLAUDE_CODE_OAUTH_TOKEN=.*|CLAUDE_CODE_OAUTH_TOKEN=$token|" .env && rm -f .env.bak
 elif [ "$login" = "opencode" ]; then
   bold "Signing opencode in to your provider"
   echo "Pick your provider and paste its key when opencode asks."
-  docker compose run --rm --no-deps larder opencode auth login || echo "Skipped. You can do it later: docker compose exec larder opencode auth login"
+  docker compose run --rm --no-deps plateful opencode auth login || echo "Skipped. You can do it later: docker compose exec plateful opencode auth login"
 fi
 
-bold "Starting Larder..."
+bold "Starting Plateful..."
 if [ -n "$domain" ]; then docker compose --profile cloud up -d; else docker compose up -d; fi
 
-bold "Larder is running."
+bold "Plateful is running."
 if [ -n "$domain" ]; then
   echo "Open https://$domain (the certificate can take a minute on first start)."
   echo "Household password: $password"

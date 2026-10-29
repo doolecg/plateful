@@ -1,3 +1,4 @@
+import './env.js';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -194,7 +195,7 @@ function parseWeight(text) {
 function decodeImages(images) {
   return images.map((dataUrl) => {
     const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(dataUrl);
-    if (!m) throw new ParseError('That image format isn’t one Larder can read.');
+    if (!m) throw new ParseError('That image format isn’t one Plateful can read.');
     return { mediaType: m[1], data: m[2] };
   });
 }
@@ -360,4 +361,4 @@ app.use((err, req, res, _next) => {
 });
 
 const port = Number(process.env.PORT) || 8080;
-app.listen(port, () => console.log(`Larder listening on :${port}`));
+app.listen(port, () => console.log(`Plateful listening on :${port}`));

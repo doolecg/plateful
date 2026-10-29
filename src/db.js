@@ -9,7 +9,9 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 // CLI tools keep their sign-ins under HOME, which the Docker image points into the data folder
 if (process.env.HOME?.startsWith(DATA_DIR)) fs.mkdirSync(process.env.HOME, { recursive: true });
 
-export const db = new Database(path.join(DATA_DIR, 'larder.db'));
+// Installs from before the rename to Plateful keep their larder.db where it is
+const DB_FILE = fs.existsSync(path.join(DATA_DIR, 'larder.db')) ? 'larder.db' : 'plateful.db';
+export const db = new Database(path.join(DATA_DIR, DB_FILE));
 db.pragma('journal_mode = WAL');
 
 const SCHEMA = `

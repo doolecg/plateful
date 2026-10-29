@@ -1,13 +1,13 @@
-// The AI that reads food. Larder works with anything that can take a prompt (and ideally a photo)
+// The AI that reads food. Plateful works with anything that can take a prompt (and ideally a photo)
 // and reply with JSON: a coding CLI signed in on this machine, a local model server, or any
-// command you give it. Pick one with LARDER_AI in .env; see SETUP.md.
+// command you give it. Pick one with PLATEFUL_AI in .env; see SETUP.md.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 const env = process.env;
-const TIMEOUT_MS = (Number(env.LARDER_AI_TIMEOUT) || 180) * 1000;
+const TIMEOUT_MS = (Number(env.PLATEFUL_AI_TIMEOUT) || 180) * 1000;
 
 export class AiError extends Error {}
 
@@ -25,11 +25,11 @@ function run(cmd, args, { input = '', cwd, shell = false } = {}) {
     child.stderr.on('data', (d) => { stderr += d; });
     child.on('error', (e) => {
       clearTimeout(timer);
-      reject(e.code === 'ENOENT' ? new AiError(`“${cmd}” isn’t installed where Larder runs. See SETUP.md, “Choosing an AI”.`) : e);
+      reject(e.code === 'ENOENT' ? new AiError(`“${cmd}” isn’t installed where Plateful runs. See SETUP.md, “Choosing an AI”.`) : e);
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
-      if (signal === 'SIGKILL') return reject(new AiError(`${cmd} took longer than ${TIMEOUT_MS / 1000} seconds. Raise LARDER_AI_TIMEOUT for slow models.`));
+      if (signal === 'SIGKILL') return reject(new AiError(`${cmd} took longer than ${TIMEOUT_MS / 1000} seconds. Raise PLATEFUL_AI_TIMEOUT for slow models.`));
       if (code !== 0 && !stdout.trim()) {
         console.error(`${cmd} exited ${code}: ${stderr.slice(-1500)}`);
         // Show the person the tool's own complaint (bad key, not signed in...), not a stack of JSON
@@ -47,7 +47,7 @@ function run(cmd, args, { input = '', cwd, shell = false } = {}) {
 
 // Photos as files, for CLIs that take paths. Removed again once the reply is in.
 async function withImageFiles(images, fn) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'larder-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'plateful-'));
   try {
     const paths = [];
     for (const [i, img] of images.entries()) {
@@ -165,7 +165,7 @@ export const PROVIDERS = {
     models: { text: '', photo: '' },
     images: true,
     nativeSchema: true,
-    ready: () => (textModel() ? null : 'Set LARDER_TEXT_MODEL in .env to an Ollama model you’ve pulled, for example gemma3.'),
+    ready: () => (textModel() ? null : 'Set PLATEFUL_TEXT_MODEL in .env to an Ollama model you’ve pulled, for example gemma3.'),
     async ask({ system, prompt, images, model, schema }) {
       const host = (env.OLLAMA_HOST || 'http://127.0.0.1:11434').replace(/\/$/, '');
       const out = await postJson(`${host.startsWith('http') ? host : `http://${host}`}/api/chat`, {
@@ -182,10 +182,10 @@ export const PROVIDERS = {
     models: { text: '', photo: '' },
     images: true,
     nativeSchema: true,
-    ready: () => (env.LARDER_AI_URL ? null : 'Set LARDER_AI_URL in .env, for example http://host.docker.internal:8081/v1.'),
+    ready: () => (env.PLATEFUL_AI_URL ? null : 'Set PLATEFUL_AI_URL in .env, for example http://host.docker.internal:8081/v1.'),
     async ask({ system, prompt, images, model, schema }) {
-      const url = `${env.LARDER_AI_URL.replace(/\/$/, '')}/chat/completions`;
-      const headers = env.LARDER_AI_KEY ? { authorization: `Bearer ${env.LARDER_AI_KEY}` } : {};
+      const url = `${env.PLATEFUL_AI_URL.replace(/\/$/, '')}/chat/completions`;
+      const headers = env.PLATEFUL_AI_KEY ? { authorization: `Bearer ${env.PLATEFUL_AI_KEY}` } : {};
       const body = {
         ...(model ? { model } : {}), temperature: 0,
         messages: [{ role: 'system', content: system }, {
@@ -210,10 +210,10 @@ export const PROVIDERS = {
   custom: {
     label: 'Custom command',
     models: { text: '', photo: '' },
-    get images() { return /\{images?\}/.test(env.LARDER_AI_COMMAND || ''); },
-    ready: () => (env.LARDER_AI_COMMAND ? null : 'Set LARDER_AI_COMMAND in .env.'),
+    get images() { return /\{images?\}/.test(env.PLATEFUL_AI_COMMAND || ''); },
+    ready: () => (env.PLATEFUL_AI_COMMAND ? null : 'Set PLATEFUL_AI_COMMAND in .env.'),
     ask({ system, prompt, images, model }) {
-      const template = env.LARDER_AI_COMMAND;
+      const template = env.PLATEFUL_AI_COMMAND;
       return withImageFiles(images, async (paths, dir) => {
         const full = `${system}\n\n${prompt}`;
         const promptFile = path.join(dir, 'prompt.txt');
@@ -233,12 +233,12 @@ export const PROVIDERS = {
 };
 
 // Claude stays the default, so an existing install with just a Claude token keeps working
-export const providerId = PROVIDERS[env.LARDER_AI] ? env.LARDER_AI : 'claude';
+export const providerId = PROVIDERS[env.PLATEFUL_AI] ? env.PLATEFUL_AI : 'claude';
 export const provider = PROVIDERS[providerId];
-const textModel = () => env.LARDER_TEXT_MODEL || provider.models.text;
-const photoModel = () => env.LARDER_PHOTO_MODEL || provider.models.photo || textModel();
-// LARDER_AI_IMAGES=false for a model that can't see (most small local text models)
-export const canSeePhotos = () => provider.images && env.LARDER_AI_IMAGES !== 'false';
+const textModel = () => env.PLATEFUL_TEXT_MODEL || provider.models.text;
+const photoModel = () => env.PLATEFUL_PHOTO_MODEL || provider.models.photo || textModel();
+// PLATEFUL_AI_IMAGES=false for a model that can't see (most small local text models)
+export const canSeePhotos = () => provider.images && env.PLATEFUL_AI_IMAGES !== 'false';
 
 // 'auto' = the lighter model for typing and the stronger one for photos; 'best' / 'fast' = one for everything.
 // 'sonnet' and 'haiku' are the names older installs saved.

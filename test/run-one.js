@@ -1,4 +1,4 @@
-// Runs one parseFood call with whatever LARDER_AI settings are in the environment; prints the result
+// Runs one parseFood call with whatever PLATEFUL_AI settings are in the environment; prints the result
 import { parseFood } from '../src/parse.js';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';

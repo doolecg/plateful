@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stand-in for `codex exec`: checks the flags Larder relies on, writes the reply to -o
+# Stand-in for `codex exec`: checks the flags Plateful relies on, writes the reply to -o
 out=""; imgs=""; schema=""
 while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift ;; -i) imgs="$imgs,$2"; shift ;; --output-schema) schema="$2"; shift ;; esac; shift; done
 [ -f "$schema" ] || { echo "no schema" >&2; exit 2; }

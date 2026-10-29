@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { db } from './db.js';
 
+// Cookie names from before the rename to Plateful, kept so nobody gets signed out
 const COOKIE = 'larder_session';
 const YEAR = 365 * 24 * 3600;
 
@@ -43,9 +44,9 @@ export function startSession(res, profileId) {
   cookie(res, COOKIE, token, YEAR);
 }
 
-/* Household password: set LARDER_PASSWORD when Larder is reachable from the internet. Without it,
+/* Household password: set PLATEFUL_PASSWORD when Plateful is reachable from the internet. Without it,
    PINs are the only lock, which is fine behind Tailscale or a home router but not on the open web. */
-const HOUSE = process.env.LARDER_PASSWORD || '';
+const HOUSE = process.env.PLATEFUL_PASSWORD || '';
 const HOUSE_COOKIE = 'larder_house';
 const houseToken = HOUSE && crypto.createHmac('sha256', HOUSE).update('larder household').digest('hex');
 export const houseLocked = Boolean(HOUSE);

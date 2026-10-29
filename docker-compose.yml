@@ -1,37 +1,37 @@
 services:
-  larder:
+  plateful:
     build:
       context: .
       args:
-        LARDER_CLIS: ${LARDER_CLIS:-claude}
-    image: larder:local
-    container_name: larder
+        PLATEFUL_CLIS: ${PLATEFUL_CLIS:-${LARDER_CLIS:-claude}}
+    image: plateful:local
+    container_name: plateful
     restart: unless-stopped
-    # Everything in .env reaches Larder and the AI tools: tokens, API keys, LARDER_AI and so on
+    # Everything in .env reaches Plateful and the AI tools: tokens, API keys, PLATEFUL_AI and so on
     env_file:
       - path: .env
         required: false
     environment:
       TZ: ${TZ:-Europe/London}
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-    # Lets Larder reach Ollama or another model server running on this computer
+    # Lets Plateful reach Ollama or another model server running on this computer
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${LARDER_PORT:-8080}:8080"
+      - "${PLATEFUL_PORT:-${LARDER_PORT:-8080}}:8080"
     volumes:
       - ./data:/data
 
   # Only for an install on the open internet: `docker compose --profile cloud up -d`.
-  # Caddy gets a free HTTPS certificate for LARDER_DOMAIN and passes traffic to Larder.
+  # Caddy gets a free HTTPS certificate for PLATEFUL_DOMAIN and passes traffic to Plateful.
   caddy:
     image: caddy:2.10
     profiles: [cloud]
     restart: unless-stopped
-    command: caddy reverse-proxy --from ${LARDER_DOMAIN:-localhost} --to larder:8080
+    command: caddy reverse-proxy --from ${PLATEFUL_DOMAIN:-${LARDER_DOMAIN:-localhost}} --to plateful:8080
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./data/caddy:/data
-    depends_on: [larder]
+    depends_on: [plateful]

@@ -6,17 +6,17 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 FROM node:22-bookworm-slim
-# The AI command-line tools to bake in, from LARDER_CLIS in .env (space-separated):
+# The AI command-line tools to bake in, from PLATEFUL_CLIS in .env (space-separated):
 # claude, codex, gemini, opencode. Ollama, OpenAI-compatible servers and custom commands need none.
-ARG LARDER_CLIS="claude"
+ARG PLATEFUL_CLIS="claude"
 RUN set -e; pkgs=""; \
-    for c in $LARDER_CLIS; do case "$c" in \
+    for c in $PLATEFUL_CLIS; do case "$c" in \
       claude) pkgs="$pkgs @anthropic-ai/claude-code@2.1.312" ;; \
       codex) pkgs="$pkgs @openai/codex" ;; \
       gemini) pkgs="$pkgs @google/gemini-cli" ;; \
       opencode) pkgs="$pkgs opencode-ai" ;; \
       none) ;; \
-      *) echo "Unknown CLI in LARDER_CLIS: $c" >&2; exit 1 ;; \
+      *) echo "Unknown CLI in PLATEFUL_CLIS: $c" >&2; exit 1 ;; \
     esac; done; \
     if [ -n "$pkgs" ]; then npm install -g $pkgs && npm cache clean --force; fi
 WORKDIR /app

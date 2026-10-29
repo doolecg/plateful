@@ -1,7 +1,7 @@
 {
-  "name": "larder",
+  "name": "plateful",
   "version": "1.0.0",
-  "description": "A self-hosted calorie diary for the household. Send what you ate; Claude reads it, Larder does the sums.",
+  "description": "A self-hosted calorie diary for the household. Send what you ate; Claude reads it, Plateful does the sums.",
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",

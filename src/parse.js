@@ -76,7 +76,7 @@ const schemaText = `Reply with only a JSON object, no other text, matching this 
 
 export async function parseFood({ text, images, savedFoods, localTime, modelMode }) {
   const problem = provider.ready();
-  if (problem) throw new ParseError(`Larder’s AI (${provider.label}) isn’t set up yet: ${problem} Saved foods and presets still work.`);
+  if (problem) throw new ParseError(`Plateful’s AI (${provider.label}) isn’t set up yet: ${problem} Saved foods and presets still work.`);
 
   // A provider that can't see photos still reads the words that came with them
   let note = '';

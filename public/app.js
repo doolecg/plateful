@@ -480,7 +480,7 @@ function saveAsFood(e) {
   });
 }
 
-// Text for whichever AI the server is set up with (LARDER_AI in .env)
+// Text for whichever AI the server is set up with (PLATEFUL_AI in .env)
 const aiStatus = (ai) => (ai.problem ? `${ai.label} isn’t set up yet, so only saved foods and presets work: ${ai.problem} See SETUP.md.`
   : `Food is read by ${ai.label}.${ai.photos ? '' : ' It can’t see photos as set up, so describe food in words.'}`);
 
@@ -528,7 +528,7 @@ function originText(e) {
   if (e.source === 'label') return !msg ? 'Taken from a nutrition label.'
     : msg.images.length ? `${who} read the nutrition label in ${from} and scaled it to the amount you had.`
     : `${who} used the label figures for it, scaled to the amount you had.`;
-  if (e.source === 'saved') return msg ? `${who} matched it to one of your saved foods and scaled that to the amount you had.` : `${esc(e.origin || 'One of your saved foods')}, scaled to the amount by Larder.`;
+  if (e.source === 'saved') return msg ? `${who} matched it to one of your saved foods and scaled that to the amount you had.` : `${esc(e.origin || 'One of your saved foods')}, scaled to the amount by Plateful.`;
   if (e.source === 'est.' && !msg) return 'An estimate using typical UK values.';
   if (e.source === 'est.') return `${who} estimated it from ${from}, using typical UK values (supermarket own-brand and McCance and Widdowson style figures). A good guess rather than a measurement.`;
   if (e.source === 'manual') return 'You typed these numbers in yourself.';
@@ -539,7 +539,7 @@ function originText(e) {
 
 function conversionText(e) {
   const u = UNITS[e.unit];
-  if (!u || !(e.amount > 0)) return e.quantity ? `Logged as “${esc(e.quantity)}” before Larder knew about units, so there’s no weight on record.` : 'No amount recorded.';
+  if (!u || !(e.amount > 0)) return e.quantity ? `Logged as “${esc(e.quantity)}” before Plateful knew about units, so there’s no weight on record.` : 'No amount recorded.';
   const grams = e.grams ?? toGrams(e.amount, e.unit, e);
   if (u.kind === 'weight') return e.unit === 'g' ? `${n(grams)} g.` : `${esc(e.quantity)} is ${r1(grams)} g (1 ${u.label} = ${u.g} g).`;
   if (u.kind === 'volume') {
@@ -564,9 +564,9 @@ function infoDialog(e) {
       ${e.edited_at ? `<dt>Changed</dt><dd>You edited the amount or numbers by hand on ${new Date(e.edited_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</dd>` : ''}
       <dt>Amount</dt><dd class="num">${conversionText(e)}</dd>
       ${per100 ? `<dt>Per 100 g</dt><dd class="num">${n(per100(e.kcal))} kcal · P ${per100(e.protein)} g · C ${per100(e.carbs)} g · F ${per100(e.fat)} g</dd>` : ''}
-      <dt>Worked out by</dt><dd>Larder itself: totals, targets, the week and every unit conversion are sums on your server, so they cost no tokens.</dd>
+      <dt>Worked out by</dt><dd>Plateful itself: totals, targets, the week and every unit conversion are sums on your server, so they cost no tokens.</dd>
     </dl>
-    <div class="actions"><button class="btn" value="cancel" formnovalidate>Close</button><span class="spacer"></span><button class="link-btn" type="button" data-explain>How Larder works out numbers</button></div>
+    <div class="actions"><button class="btn" value="cancel" formnovalidate>Close</button><span class="spacer"></span><button class="link-btn" type="button" data-explain>How Plateful works out numbers</button></div>
   </form>`, async () => {});
 }
 
@@ -583,7 +583,7 @@ function explainDialog() {
         if (mode === 'haiku') return `${esc(modelName(ai.text))} (through ${esc(ai.label)}) reads everything you send`;
         return `${esc(modelName(ai.text))} reads what you type and ${esc(modelName(ai.photo))} reads anything with a photo, through ${esc(ai.label)}`;
       })()} (change it in Settings). In order of preference it uses a nutrition label it can see, then one of your saved foods, then typical UK values for a realistic portion. Each item is tagged: <span class="src label">from label</span>, <span class="src label">saved food</span> or <span class="src">estimate</span>.</p>
-      <h3>Larder does the rest</h3>
+      <h3>Plateful does the rest</h3>
       <p>Everything else is worked out on your server with no tokens: daily and weekly totals, the flex day, macros, the weight trend and goal date, suggestions, presets, copying, and all unit conversions. Presets and copies carry the numbers they were saved with, and the (i) on each item shows where they first came from.</p>
       <h3>Units</h3>
       <p>Weights are exact (1 oz = 28.35 g, 1 lb = 453.6 g). Spoons and cups are UK metric: ${['tsp', 'dsp', 'tbsp', 'cup'].map(spoon).join(', ')}; a US cup is 236.6 ml. A UK pint is 568 ml and a UK fl oz 28.4 ml; the US ones are marked. Volumes are turned into grams using how heavy that food is per ml (the AI’s figure, or water if there isn’t one), and slices, handfuls and the like using a weight for one of them. You can correct the grams on any item and everything rescales.</p>
@@ -831,7 +831,7 @@ async function showGate() {
   gate.innerHTML = '<div class="gate-inner"></div>';
   if (!gateProfiles.length) return newPersonForm(true);
   gate.innerHTML = `<div class="gate-inner">
-    <div class="brand big-brand">Larder</div>
+    <div class="brand big-brand">Plateful</div>
     <h1>Who’s logging?</h1>
     <div class="people">${gateProfiles.map((p) => `<button class="person" data-person="${p.id}"><span class="avatar lg">${esc(p.name[0].toUpperCase())}</span>${esc(p.name)}</button>`).join('')}
       <button class="person add" data-addperson><span class="avatar lg">+</span>Add someone</button></div>
@@ -839,7 +839,7 @@ async function showGate() {
 }
 
 function pinForm(p) {
-  $('#gate .gate-inner').innerHTML = `<div class="brand big-brand">Larder</div>
+  $('#gate .gate-inner').innerHTML = `<div class="brand big-brand">Plateful</div>
     <span class="avatar lg">${esc(p.name[0].toUpperCase())}</span>
     <h1>${p.hasPin ? `Hi ${esc(p.name)}` : `Set a PIN, ${esc(p.name)}`}</h1>
     <form class="pin-form" id="pinForm" data-id="${p.id}">
@@ -850,22 +850,22 @@ function pinForm(p) {
   $('#pinForm input').focus();
 }
 
-// Only shown when the server has LARDER_PASSWORD set, before anything else
+// Only shown when the server has PLATEFUL_PASSWORD set, before anything else
 function houseForm() {
-  $('#gate').innerHTML = `<div class="gate-inner"><div class="brand big-brand">Larder</div>
+  $('#gate').innerHTML = `<div class="gate-inner"><div class="brand big-brand">Plateful</div>
     <h1>Household password</h1>
     <form class="pin-form" id="houseForm">
       <label class="f">Password<input name="password" type="password" autocomplete="current-password" required autofocus></label>
-      <p class="small" style="margin:0">Whoever set up this Larder has the password. Each device only needs it once.</p>
+      <p class="small" style="margin:0">Whoever set up this Plateful has the password. Each device only needs it once.</p>
       <div class="actions"><button class="btn primary" type="submit">Unlock</button></div>
     </form></div>`;
   $('#houseForm input').focus();
 }
 
 function newPersonForm(first = false) {
-  $('#gate .gate-inner').innerHTML = `<div class="brand big-brand">Larder</div>
+  $('#gate .gate-inner').innerHTML = `<div class="brand big-brand">Plateful</div>
     <h1>${first ? 'Welcome. Who’s first?' : 'Add someone'}</h1>
-    ${first ? '<p class="small gate-lede">Larder keeps a food diary for each person in the house. Set yourself up here; anyone else can add themselves from the start screen later.</p>' : ''}
+    ${first ? '<p class="small gate-lede">Plateful keeps a food diary for each person in the house. Set yourself up here; anyone else can add themselves from the start screen later.</p>' : ''}
     <form class="pin-form wide" id="newPerson">
       <div class="grid">
         <label class="f full">Name<input name="name" required maxlength="40" autofocus></label>

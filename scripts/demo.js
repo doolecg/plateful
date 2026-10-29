@@ -1,4 +1,4 @@
-// Fills an empty Larder with a made-up household (Sam and Alex, PINs 1111 and 2222) so you can
+// Fills an empty Plateful with a made-up household (Sam and Alex, PINs 1111 and 2222) so you can
 // try the app or take screenshots without logging real food first.
 //   DATA_DIR=./demo-data node scripts/demo.js && DATA_DIR=./demo-data node src/server.js
 import { db, saveSettings, DEFAULT_SETTINGS } from '../src/db.js';

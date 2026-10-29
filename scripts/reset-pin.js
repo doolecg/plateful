@@ -1,5 +1,5 @@
 // Clears someone's PIN so they choose a new one next time they tap their name.
-//   docker compose exec larder node scripts/reset-pin.js Sam
+//   docker compose exec plateful node scripts/reset-pin.js Sam
 import { db } from '../src/db.js';
 
 const name = process.argv.slice(2).join(' ').trim();
