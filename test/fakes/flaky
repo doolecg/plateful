@@ -1,0 +1,4 @@
+#!/bin/sh
+# Custom command that gets it wrong the first time, to exercise the retry
+n=$(cat "$FAKE_LOG" 2>/dev/null || echo 0); echo $((n+1)) > "$FAKE_LOG"
+if [ "$n" = "0" ]; then echo '{"items":[{"name":"Toast","kcal":"lots"}]}'; else cat "$(dirname "$0")/reply.json"; fi

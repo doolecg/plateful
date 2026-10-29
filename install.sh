@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 
 bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 ask() { local reply; read -r -p "$1 " reply; printf '%s' "${reply:-$2}"; }
+secret() { local reply; read -r -s -p "$1 " reply; echo >&2; printf '%s' "$reply"; }
 die() { printf '\n%s\n' "$*" >&2; exit 1; }
 
 bold "Larder installer"
@@ -25,35 +26,84 @@ if [ -f .env ]; then
   fi
 fi
 
-echo "Building Larder (the first time takes a few minutes)..."
-docker compose build
-
-bold "1. Signing in to Claude"
+bold "1. Which AI should read your food?"
 cat <<'EOF'
-Larder uses Claude to read what you eat. Pick how to pay for that:
-  1) A Claude Pro or Max subscription you already have (no extra cost)
-  2) An API key from console.anthropic.com (pay per message, usually pennies)
+Larder sends what you type or photograph to an AI, which turns it into calories.
+Use whichever you already have:
+  1) Claude, with a Pro or Max subscription (no extra cost)
+  2) Claude, with an API key from console.anthropic.com (pay per message)
+  3) OpenAI, through the Codex CLI (an OpenAI API key, or your ChatGPT sign-in)
+  4) Google Gemini, through the Gemini CLI (a key from Google AI Studio)
+  5) opencode, which can use almost any provider you've signed in to
+  6) Ollama, running models on your own computer (free, private, needs a decent machine)
+  7) Another server that speaks the OpenAI API (llama.cpp, LM Studio, vLLM, OpenRouter...)
+  8) My own command (advanced, see SETUP.md)
 EOF
-how=$(ask "Choose 1 or 2 [1]:" 1)
-token="" key=""
-if [ "$how" = "2" ]; then
-  read -r -s -p "Paste your API key (starts sk-ant-api, hidden as you paste): " key; echo
-  [ -n "$key" ] || die "No key given. Run ./install.sh again when you have one."
-else
-  cat <<'EOF'
+choice=$(ask "Choose 1 to 8 [1]:" 1)
+
+ai=claude clis=claude token="" key="" codex_key="" gemini_key="" text_model="" photo_model=""
+ollama_host="" ai_url="" ai_key="" ai_command="" images="" login=""
+case "$choice" in
+  1)
+    cat <<'EOF'
 
 You need a long-lived token for your subscription. If you have Claude Code on a computer,
-run `claude setup-token` there and paste the token below.
-Or just press Enter and the installer runs it for you: it shows a link, you sign in to
-Claude in your browser, paste the code it gives you back here, and it prints your token.
+run `claude setup-token` there and paste the token below. Or press Enter and the installer
+runs it for you once Larder is built: it shows a link, you sign in to Claude in your browser,
+and paste the code it gives you back here.
 EOF
-  read -r -s -p "Paste your token (starts sk-ant-oat, hidden), or press Enter: " token; echo
-  if [ -z "$token" ]; then
-    docker compose run --rm --no-deps -e CLAUDE_CODE_OAUTH_TOKEN= larder claude setup-token || true
-    read -r -s -p "Now paste the token it printed (hidden): " token; echo
-  fi
-  [ -n "$token" ] || die "No token given. Run ./install.sh again when you have one."
-fi
+    token=$(secret "Paste your token (starts sk-ant-oat, hidden), or press Enter:")
+    [ -n "$token" ] || login=claude ;;
+  2)
+    key=$(secret "Paste your Anthropic API key (starts sk-ant-api, hidden):")
+    [ -n "$key" ] || die "No key given. Run ./install.sh again when you have one." ;;
+  3)
+    ai=codex clis=codex
+    echo
+    echo "Paste an OpenAI API key, or press Enter to use your ChatGPT sign-in instead (SETUP.md explains how)."
+    codex_key=$(secret "OpenAI API key (hidden), or Enter:")
+    text_model=$(ask "Model for typed messages (Enter for Codex's default):" "")
+    photo_model=$(ask "Model for photos (Enter for the same):" "") ;;
+  4)
+    ai=gemini clis=gemini
+    gemini_key=$(secret "Paste your Gemini API key from aistudio.google.com (hidden):")
+    [ -n "$gemini_key" ] || die "No key given. Run ./install.sh again when you have one."
+    text_model=$(ask "Model for typed messages [flash]:" flash)
+    photo_model=$(ask "Model for photos [flash]:" flash) ;;
+  5)
+    ai=opencode clis=opencode
+    echo
+    echo "opencode models are written provider/model, for example openai/gpt-5 or anthropic/claude-haiku-5-5."
+    text_model=$(ask "Model for typed messages (Enter for opencode's default):" "")
+    photo_model=$(ask "Model for photos (Enter for the same):" "")
+    login=opencode ;;
+  6)
+    ai=ollama clis=none
+    ollama_host=$(ask "Where is Ollama? [http://host.docker.internal:11434, meaning this computer]:" "http://host.docker.internal:11434")
+    text_model=$(ask "Model for typed messages, one you've pulled (for example gemma3):" "")
+    [ -n "$text_model" ] || die "Larder needs a model name. Pull one with 'ollama pull gemma3' and run this again."
+    photo_model=$(ask "Model for photos (Enter for the same; it must be a vision model):" "")
+    sees=$(ask "Can that model see pictures? [y/N]:" n)
+    [[ "$sees" =~ ^[Yy] ]] || images=false ;;
+  7)
+    ai=openai clis=none
+    ai_url=$(ask "Server address ending in /v1 (llama-server on this computer: http://host.docker.internal:8081/v1):" "")
+    [ -n "$ai_url" ] || die "Larder needs the server's address. Run this again when you have it."
+    ai_key=$(secret "API key if it needs one (hidden), or Enter:")
+    text_model=$(ask "Model name (Enter if the server only has one):" "")
+    photo_model=$(ask "Model for photos (Enter for the same):" "")
+    sees=$(ask "Can it see pictures? [y/N]:" n)
+    [[ "$sees" =~ ^[Yy] ]] || images=false ;;
+  8)
+    ai=custom
+    echo
+    echo "The command must print the JSON Larder asks for. Placeholders: {prompt_file} {prompt} {image} {images} {model}."
+    ai_command=$(ask "Command:" "")
+    [ -n "$ai_command" ] || die "No command given."
+    [[ "$ai_command" != *\'* ]] || die "Put a command with single quotes in a script and give the script's path instead."
+    clis=$(ask "CLIs to build in (any of: claude codex gemini opencode, or none) [none]:" none) ;;
+  *) die "That wasn't 1 to 8." ;;
+esac
 
 bold "2. Where will you use it?"
 cat <<'EOF'
@@ -80,14 +130,40 @@ fi
 
 umask 077
 cat > .env <<EOF
+LARDER_AI=$ai
+LARDER_CLIS=$clis
+LARDER_TEXT_MODEL=$text_model
+LARDER_PHOTO_MODEL=$photo_model
+LARDER_AI_IMAGES=$images
 CLAUDE_CODE_OAUTH_TOKEN=$token
 ANTHROPIC_API_KEY=$key
+CODEX_API_KEY=$codex_key
+GEMINI_API_KEY=$gemini_key
+OLLAMA_HOST=${ollama_host:-http://host.docker.internal:11434}
+LARDER_AI_URL=$ai_url
+LARDER_AI_KEY=$ai_key
+LARDER_AI_COMMAND='$ai_command'
 TZ=$tz
 LARDER_PORT=$port
 LARDER_PASSWORD=$password
 LARDER_DOMAIN=$domain
 EOF
-mkdir -p data
+mkdir -p data/home
+
+bold "Building Larder (the first time takes a few minutes)..."
+docker compose build
+
+if [ "$login" = "claude" ]; then
+  bold "Signing in to Claude"
+  docker compose run --rm --no-deps larder claude setup-token || true
+  token=$(secret "Now paste the token it printed (hidden):")
+  [ -n "$token" ] || die "No token given. Put it in .env as CLAUDE_CODE_OAUTH_TOKEN, then run: docker compose up -d"
+  sed -i.bak "s|^CLAUDE_CODE_OAUTH_TOKEN=.*|CLAUDE_CODE_OAUTH_TOKEN=$token|" .env && rm -f .env.bak
+elif [ "$login" = "opencode" ]; then
+  bold "Signing opencode in to your provider"
+  echo "Pick your provider and paste its key when opencode asks."
+  docker compose run --rm --no-deps larder opencode auth login || echo "Skipped. You can do it later: docker compose exec larder opencode auth login"
+fi
 
 bold "Starting Larder..."
 if [ -n "$domain" ]; then docker compose --profile cloud up -d; else docker compose up -d; fi
@@ -103,4 +179,5 @@ else
   [ -n "$ip" ] && echo "On your home network:  http://$ip:$port"
   command -v tailscale >/dev/null && echo "Over Tailscale:        http://$(hostname):$port  (see SETUP.md for HTTPS)"
 fi
+if [ "$ai" = "codex" ] && [ -z "$codex_key" ]; then echo "To use your ChatGPT sign-in, follow 'OpenAI Codex' in SETUP.md before logging food."; fi
 echo "The first person to open it sets themselves up. Your diary lives in the 'data' folder here."

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stand-in for `codex exec`: checks the flags Larder relies on, writes the reply to -o
+out=""; imgs=""; schema=""
+while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift ;; -i) imgs="$imgs,$2"; shift ;; --output-schema) schema="$2"; shift ;; esac; shift; done
+[ -f "$schema" ] || { echo "no schema" >&2; exit 2; }
+cat > /dev/null
+for f in $(echo "$imgs" | tr ',' ' '); do [ -s "$f" ] || { echo "missing image $f" >&2; exit 3; }; done
+echo "$imgs" > "$FAKE_LOG"
+cp "$(dirname "$0")/reply.json" "$out"
+echo "done"

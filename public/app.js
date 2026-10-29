@@ -383,7 +383,7 @@ function foodMeta(f) {
 function renderFoods() {
   const { foods } = state;
   $('#foods').innerHTML = `<h2>Saved foods</h2>
-    <p class="lede">Tap one in the bar above the message box to add it without asking Claude. Save more from any logged item.</p>
+    <p class="lede">Tap one in the bar above the message box to add it without asking the AI. Save more from any logged item.</p>
     ${foods.length ? `<ul class="foodlist">${foods.map((f) => `<li><div><div>${esc(f.name)}</div><div class="meta num">${foodMeta(f)}</div></div>
       <button class="link-btn" data-delfood="${f.id}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')}</ul>`
       : '<p class="small">None yet.</p>'}`;
@@ -480,8 +480,13 @@ function saveAsFood(e) {
   });
 }
 
+// Text for whichever AI the server is set up with (LARDER_AI in .env)
+const aiStatus = (ai) => (ai.problem ? `${ai.label} isn’t set up yet, so only saved foods and presets work: ${ai.problem} See SETUP.md.`
+  : `Food is read by ${ai.label}.${ai.photos ? '' : ' It can’t see photos as set up, so describe food in words.'}`);
+
 function openSettings() {
   const s = state.settings;
+  const ai = state.server.ai;
   const days = [['auto', 'Whichever day I go over'], ['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']];
   openDialog(`<h2>Settings for ${esc(state.profile.name)}</h2><form>
     <div class="grid">
@@ -490,16 +495,18 @@ function openSettings() {
       <label class="f wide">Flex day kcal<input name="flex_kcal" type="number" min="800" max="6000" value="${s.flex_kcal}" required></label>
       <label class="f full">Flex day<select name="flex_day">${days.map(([v, l]) => `<option value="${v}"${v === s.flex_day ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="f full">Goal weight (kg)<input name="goal_kg" type="number" step="0.1" min="30" max="300" value="${s.goal_kg ?? ''}" placeholder="optional"></label>
-      <label class="f full">Who reads your food<select name="model_mode">${[
-        ['auto', 'Haiku for typing, Sonnet for photos (cheapest)'],
-        ['sonnet', 'Sonnet for everything (most accurate)'],
-        ['haiku', 'Haiku for everything'],
-      ].map(([v, l]) => `<option value="${v}"${v === s.model_mode ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="f full">Which model reads your food<select name="model_mode">${(ai.text === ai.photo ? [
+        ['auto', `${modelName(ai.text)} for everything`],
+      ] : [
+        ['auto', `${modelName(ai.text)} for typing, ${modelName(ai.photo)} for photos (cheapest)`],
+        ['sonnet', `${modelName(ai.photo)} for everything (most accurate)`],
+        ['haiku', `${modelName(ai.text)} for everything`],
+      ]).map(([v, l]) => `<option value="${v}"${v === s.model_mode ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="f wide">Current PIN<input name="current" type="password" inputmode="numeric" autocomplete="current-password" pattern="\\d{4,8}" placeholder="to change PIN"></label>
       <label class="f wide">New PIN<input name="pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="\\d{4,8}" placeholder="4 to 8 digits"></label>
     </div>
     <p class="small" style="margin:0">16 st is 101.6 kg. The week runs Monday to Sunday. Leave the PIN boxes empty to keep your PIN.</p>
-    <p class="small" style="margin:0">${state.server.claude === 'subscription' ? 'Food is read using a Claude subscription.' : state.server.claude === 'api_key' ? 'Food is read using a Claude API key, billed per message.' : 'Larder isn’t signed in to Claude yet, so only saved foods and presets work. See SETUP.md.'}
+    <p class="small" style="margin:0">${esc(aiStatus(ai))}
       <button class="link-btn" type="button" data-explain>Where the numbers come from</button></p>
     <div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
   </form>`, async ({ current, pin, ...v }) => {
@@ -512,7 +519,7 @@ function openSettings() {
 
 /* ---------- Where the numbers came from ---------- */
 
-const modelName = (m) => (m ? m.replace(/^claude-([a-z]+)-(\d+)-(\d+).*$/, (_, f, a, b) => `Claude ${f[0].toUpperCase()}${f.slice(1)} ${a}.${b}`) : 'Claude');
+const modelName = (m) => (m ? m.replace(/^claude-([a-z]+)-(\d+)-(\d+).*$/, (_, f, a, b) => `Claude ${f[0].toUpperCase()}${f.slice(1)} ${a}.${b}`) : 'The AI');
 
 function originText(e) {
   const msg = e.message_id && state.day.messages.find((m) => m.id === e.message_id);
@@ -542,7 +549,7 @@ function conversionText(e) {
       + (Math.abs(d - 1) < 0.005 ? ', taking it to weigh the same as water.' : ` at ${d.toFixed(2)} g per ml.`);
   }
   if (grams == null) return `${esc(e.quantity)}, with no weight on record.`;
-  return `${esc(e.quantity)}, about ${n(grams)} g in all (${r1(grams / e.amount)} g each${e.message_id && !e.edited_at ? ', Claude’s estimate' : ''}).`;
+  return `${esc(e.quantity)}, about ${n(grams)} g in all (${r1(grams / e.amount)} g each${e.message_id && !e.edited_at ? ', the AI’s estimate' : ''}).`;
 }
 
 function infoDialog(e) {
@@ -567,12 +574,19 @@ function explainDialog() {
   const spoon = (k) => `${UNITS[k].label} ${r1(UNITS[k].ml)} ml`;
   openDialog(`<h2>Where the numbers come from</h2><form class="info">
     <div class="explain">
-      <h3>Claude reads what you send</h3>
-      <p>Only messages you send cost tokens. ${state.settings.model_mode === 'sonnet' ? 'Claude Sonnet 5.5 reads everything you send' : state.settings.model_mode === 'haiku' ? 'Claude Haiku 5.5 reads everything you send' : 'Claude Haiku 5.5 reads what you type and Claude Sonnet 5.5 reads anything with a photo'} (change it in Settings). In order of preference it uses a nutrition label it can see, then one of your saved foods, then typical UK values for a realistic portion. Each item is tagged: <span class="src label">from label</span>, <span class="src label">saved food</span> or <span class="src">estimate</span>.</p>
+      <h3>An AI reads what you send</h3>
+      <p>Only messages you send cost tokens. ${(() => {
+        const ai = state.server.ai;
+        const mode = state.settings.model_mode;
+        if (ai.problem) return `${esc(ai.label)} isn’t set up yet, so nothing reads your messages`;
+        if (mode === 'sonnet' || ai.text === ai.photo) return `${esc(modelName(ai.photo))} (through ${esc(ai.label)}) reads everything you send`;
+        if (mode === 'haiku') return `${esc(modelName(ai.text))} (through ${esc(ai.label)}) reads everything you send`;
+        return `${esc(modelName(ai.text))} reads what you type and ${esc(modelName(ai.photo))} reads anything with a photo, through ${esc(ai.label)}`;
+      })()} (change it in Settings). In order of preference it uses a nutrition label it can see, then one of your saved foods, then typical UK values for a realistic portion. Each item is tagged: <span class="src label">from label</span>, <span class="src label">saved food</span> or <span class="src">estimate</span>.</p>
       <h3>Larder does the rest</h3>
       <p>Everything else is worked out on your server with no tokens: daily and weekly totals, the flex day, macros, the weight trend and goal date, suggestions, presets, copying, and all unit conversions. Presets and copies carry the numbers they were saved with, and the (i) on each item shows where they first came from.</p>
       <h3>Units</h3>
-      <p>Weights are exact (1 oz = 28.35 g, 1 lb = 453.6 g). Spoons and cups are UK metric: ${['tsp', 'dsp', 'tbsp', 'cup'].map(spoon).join(', ')}; a US cup is 236.6 ml. A UK pint is 568 ml and a UK fl oz 28.4 ml; the US ones are marked. Volumes are turned into grams using how heavy that food is per ml (Claude’s figure, or water if there isn’t one), and slices, handfuls and the like using a weight for one of them. You can correct the grams on any item and everything rescales.</p>
+      <p>Weights are exact (1 oz = 28.35 g, 1 lb = 453.6 g). Spoons and cups are UK metric: ${['tsp', 'dsp', 'tbsp', 'cup'].map(spoon).join(', ')}; a US cup is 236.6 ml. A UK pint is 568 ml and a UK fl oz 28.4 ml; the US ones are marked. Volumes are turned into grams using how heavy that food is per ml (the AI’s figure, or water if there isn’t one), and slices, handfuls and the like using a weight for one of them. You can correct the grams on any item and everything rescales.</p>
       <h3>How far to trust it</h3>
       <p>A label is as good as the label. An estimate from a photo of a plate can be out a fair way, mostly on portion size. Weighing it and typing the grams beats both.</p>
     </div>
@@ -887,7 +901,7 @@ function switchPerson() {
 
 /* ---------- Composer ---------- */
 
-// Phone photos are 4–12 MB; Claude reads up to ~1568 px on the long edge anyway, so shrink first
+// Phone photos are 4–12 MB; vision models read up to ~1568 px on the long edge anyway, so shrink first
 async function shrink(file) {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 1568 / Math.max(bitmap.width, bitmap.height));

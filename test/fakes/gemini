@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stand-in for `gemini -p ... --output-format json`: the answer comes back in "response", fenced
+prompt="$2"
+echo "$prompt" | grep -o '@photo[0-9]*\.[a-z]*' > "$FAKE_LOG" || true
+for ref in $(cat "$FAKE_LOG"); do [ -s "${ref#@}" ] || { echo "missing ${ref#@}" >&2; exit 3; }; done
+node -e 'const r=require("fs").readFileSync(process.argv[1],"utf8"); console.log(JSON.stringify({response:"Here you go:\n```json\n"+r+"```",stats:{}}))' "$(dirname "$0")/reply.json"

@@ -6,6 +6,8 @@ import { UNITS, parseQuantity, withGrams } from '../public/units.js';
 export const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// CLI tools keep their sign-ins under HOME, which the Docker image points into the data folder
+if (process.env.HOME?.startsWith(DATA_DIR)) fs.mkdirSync(process.env.HOME, { recursive: true });
 
 export const db = new Database(path.join(DATA_DIR, 'larder.db'));
 db.pragma('journal_mode = WAL');

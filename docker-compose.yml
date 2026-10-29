@@ -1,15 +1,22 @@
 services:
   larder:
-    build: .
+    build:
+      context: .
+      args:
+        LARDER_CLIS: ${LARDER_CLIS:-claude}
     image: larder:local
     container_name: larder
     restart: unless-stopped
+    # Everything in .env reaches Larder and the AI tools: tokens, API keys, LARDER_AI and so on
+    env_file:
+      - path: .env
+        required: false
     environment:
       TZ: ${TZ:-Europe/London}
-      # One of these two signs Larder in to Claude (see SETUP.md)
-      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      LARDER_PASSWORD: ${LARDER_PASSWORD:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+    # Lets Larder reach Ollama or another model server running on this computer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${LARDER_PORT:-8080}:8080"
     volumes:
@@ -21,8 +28,6 @@ services:
     image: caddy:2.10
     profiles: [cloud]
     restart: unless-stopped
-    environment:
-      LARDER_DOMAIN: ${LARDER_DOMAIN:-}
     command: caddy reverse-proxy --from ${LARDER_DOMAIN:-localhost} --to larder:8080
     ports:
       - "80:80"

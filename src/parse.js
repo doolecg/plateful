@@ -1,20 +1,5 @@
-import { spawn } from 'node:child_process';
 import { UNIT_KEYS } from '../public/units.js';
-
-const SONNET = 'claude-sonnet-5-5';
-const HAIKU = 'claude-haiku-5-5';
-
-// 'auto' sends typed-only messages to Haiku (much lighter on usage, fine for "two crumpets with butter")
-// and anything with a photo to Sonnet, which reads labels and plates more reliably.
-function pickModel(mode, hasImages) {
-  if (mode === 'sonnet') return SONNET;
-  if (mode === 'haiku') return HAIKU;
-  return hasImages ? SONNET : HAIKU;
-}
-// Runs through the Claude Code CLI, signed in either with a subscription token from
-// `claude setup-token` or with an API key from the Claude Console (billed per use)
-export const claudeAuth = process.env.ANTHROPIC_API_KEY ? 'api_key' : process.env.CLAUDE_CODE_OAUTH_TOKEN ? 'subscription' : null;
-const TIMEOUT_MS = 180_000;
+import { provider, pickModel, canSeePhotos, extractJson, AiError } from './ai.js';
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
 
@@ -64,50 +49,68 @@ note: one or two short sentences in British English for the user, naming any ass
 
 export class ParseError extends Error {}
 
-// Runs `claude -p` with no tools and returns its final result event
-function runClaude(content, model) {
-  const args = ['-p', '--model', model, '--effort', 'medium', '--system-prompt', SYSTEM, '--json-schema', JSON.stringify(SCHEMA),
-    '--tools', '', '--strict-mcp-config', '--disable-slash-commands', '--setting-sources', '', '--no-session-persistence',
-    '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'];
-  return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, { stdio: ['pipe', 'pipe', 'pipe'] });
-    let out = '';
-    let err = '';
-    const timer = setTimeout(() => child.kill('SIGKILL'), TIMEOUT_MS);
-    child.stdout.on('data', (d) => { out += d; });
-    child.stderr.on('data', (d) => { err += d; });
-    child.on('error', (e) => { clearTimeout(timer); reject(e); });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      const result = out.split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } })
-        .findLast((e) => e?.type === 'result');
-      if (!result) return reject(new Error(`claude exited ${code} with no result: ${err.slice(-500)}`));
-      resolve(result);
+const SOURCES = ['label', 'saved', 'est.'];
+const NUMS = ['amount', 'grams', 'kcal', 'fat', 'carbs', 'protein'];
+
+// Checks a reply against the schema, mending what's safe to mend (a unit or meal we don't know)
+// and naming what isn't, so a model that doesn't enforce schemas can be asked to fix it
+function validate(out) {
+  if (!out || typeof out !== 'object' || !Array.isArray(out.items)) return { error: 'The reply must be a JSON object with an "items" array and a "note" string.' };
+  const items = [];
+  for (const [i, it] of out.items.entries()) {
+    if (!it || typeof it.name !== 'string' || !it.name.trim()) return { error: `items[${i}] needs a "name".` };
+    const bad = NUMS.find((k) => !Number.isFinite(Number(it[k])) || Number(it[k]) < 0);
+    if (bad) return { error: `items[${i}].${bad} must be a number of 0 or more.` };
+    items.push({
+      ...Object.fromEntries(NUMS.map((k) => [k, Number(it[k])])),
+      name: it.name.trim(),
+      unit: UNIT_KEYS.includes(it.unit) ? it.unit : 'each',
+      source: SOURCES.includes(it.source) ? it.source : 'est.',
+      meal: MEALS.includes(it.meal) ? it.meal : 'snacks',
     });
-    child.stdin.end(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
-  });
+  }
+  return { value: { items, note: typeof out.note === 'string' ? out.note : '' } };
 }
 
+const schemaText = `Reply with only a JSON object, no other text, matching this JSON Schema:\n${JSON.stringify(SCHEMA)}`;
+
 export async function parseFood({ text, images, savedFoods, localTime, modelMode }) {
-  if (!claudeAuth) throw new ParseError('Larder isn’t signed in to Claude yet (no CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY in .env), so for now only saved foods and presets work.');
+  const problem = provider.ready();
+  if (problem) throw new ParseError(`Larder’s AI (${provider.label}) isn’t set up yet: ${problem} Saved foods and presets still work.`);
+
+  // A provider that can't see photos still reads the words that came with them
+  let note = '';
+  if (images.length && !canSeePhotos()) {
+    if (!text.trim()) throw new ParseError(`${provider.label} can’t read photos as set up here. Describe what you ate in words instead.`);
+    images = [];
+    note = 'I couldn’t look at the photo, so this is from your words only.';
+  }
 
   const foodList = savedFoods.length
     ? savedFoods.map((f) => `- ${f.name}: per ${f.per} ${f.unit} = ${f.kcal} kcal, F${f.fat} C${f.carbs} P${f.protein}`).join('\n')
     : '(none)';
-
-  const content = [
-    ...images.map((img) => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.data } })),
-    { type: 'text', text: `Saved foods:\n${foodList}\n\nLocal time: ${localTime}\n\nWhat I ate:\n${text || '(see photo)'}` },
-  ];
-
+  const base = `Saved foods:\n${foodList}\n\nLocal time: ${localTime}\n\nWhat I ate:\n${text || '(see photo)'}`;
   const model = pickModel(modelMode, images.length > 0);
-  const result = await runClaude(content, model);
-  if (result.is_error) {
-    if (result.stop_reason === 'refusal') throw new ParseError('Claude declined to read that one. Try describing it in words.');
-    throw new Error(`claude: ${result.subtype} ${String(result.result ?? '').slice(0, 300)}`);
-  }
-  if (!result.structured_output) throw new ParseError('Claude sent back nothing I could read.');
 
-  const usage = result.usage ?? {};
-  return { ...result.structured_output, model, usage: { input_tokens: usage.input_tokens ?? 0, output_tokens: usage.output_tokens ?? 0 } };
+  let prompt = provider.nativeSchema ? base : `${base}\n\n${schemaText}`;
+  let usage = { input_tokens: 0, output_tokens: 0 };
+  // One retry if the reply isn't usable JSON, telling the model what was wrong
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let reply;
+    try {
+      reply = await provider.ask({ system: SYSTEM, prompt, images, model, schema: SCHEMA });
+    } catch (err) {
+      if (err instanceof AiError) throw new ParseError(err.message);
+      throw err;
+    }
+    usage = { input_tokens: usage.input_tokens + (reply.usage?.input_tokens || 0), output_tokens: usage.output_tokens + (reply.usage?.output_tokens || 0) };
+    const checked = validate(reply.json ?? extractJson(reply.text));
+    if (checked.value) {
+      const out = checked.value;
+      return { ...out, note: [note, out.note].filter(Boolean).join(' '), model: model || provider.label, usage };
+    }
+    console.error(`AI reply unusable (attempt ${attempt + 1}): ${checked.error}\n${String(reply.text ?? '').slice(0, 500)}`);
+    prompt = `${base}\n\nYour previous reply couldn’t be used: ${checked.error}\n${schemaText}`;
+  }
+  throw new ParseError(`${provider.label} didn’t send back anything I could read, twice. Try again, or describe it differently.`);
 }

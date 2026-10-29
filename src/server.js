@@ -4,7 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, UPLOAD_DIR, DEFAULT_SETTINGS, getSettings, saveSettings } from './db.js';
 import { hashPin, validPin, checkPin, startSession, endSession, requireProfile, requireHouse, unlockHouse, houseLocked } from './auth.js';
-import { parseFood, ParseError, claudeAuth } from './parse.js';
+import { parseFood, ParseError } from './parse.js';
+import { aiInfo } from './ai.js';
 import { mealRoutes } from './meals.js';
 import { UNITS, formatQuantity, withGrams } from '../public/units.js';
 import { localDate, localTime, weekOf, addDays } from './dates.js';
@@ -173,7 +174,7 @@ app.get('/api/summary', (req, res) => {
     date,
     profile: req.profile,
     settings,
-    server: { claude: claudeAuth, password: houseLocked },
+    server: { ai: aiInfo(), password: houseLocked },
     day: { entries, messages, totals: totalsFor(entries), target: dayInfo.target, flex: dayInfo.flex },
     week,
     weight: weightSummary(pid, settings),
@@ -193,12 +194,12 @@ function parseWeight(text) {
 function decodeImages(images) {
   return images.map((dataUrl) => {
     const m = /^data:(image\/(?:jpeg|png|webp|gif));base64,(.+)$/.exec(dataUrl);
-    if (!m) throw new ParseError('That image format isn’t one Claude can read.');
+    if (!m) throw new ParseError('That image format isn’t one Larder can read.');
     return { mediaType: m[1], data: m[2] };
   });
 }
 
-// Sends one stored message to Claude and writes the resulting entries against it
+// Sends one stored message to the AI and writes the resulting entries against it
 async function runMessage(msgId) {
   const m = db.prepare('SELECT * FROM messages WHERE id = ?').get(msgId);
   const images = JSON.parse(m.images).map((url) => {
@@ -232,7 +233,7 @@ async function runMessage(msgId) {
     return { ok: true, added: result.items.length };
   } catch (err) {
     console.error(err);
-    const error = err instanceof ParseError ? err.message : 'Couldn’t reach Claude just now. Your message is saved, so tap retry in a minute.';
+    const error = err instanceof ParseError ? err.message : 'Couldn’t reach the AI just now. Your message is saved, so tap retry in a minute.';
     db.prepare('UPDATE messages SET error = ? WHERE id = ?').run(error, msgId);
     return { error };
   }
