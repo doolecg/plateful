@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Larder</title>
+  <meta name="theme-color" content="#f3ede2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1714" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">Larder</div>
+    <nav class="daynav" aria-label="Day">
+      <button class="icon-btn" id="prevDay" aria-label="Previous day">‹</button>
+      <button class="day-label" id="dayLabel" title="Back to today"></button>
+      <button class="icon-btn" id="nextDay" aria-label="Next day">›</button>
+    </nav>
+    <div class="top-right">
+    <button class="who" id="who" aria-label="Switch person"></button>
+    <button class="icon-btn" id="openSettings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+    </div>
+  </header>
+
+  <div class="gate" id="gate" hidden></div>
+
+  <main id="app" class="layout" aria-busy="true">
+    <section class="col-main">
+      <div class="hero" id="hero">
+        <div class="skeleton" style="height:120px"></div>
+      </div>
+      <div class="tools" id="tools"></div>
+      <div id="meals"></div>
+      <div id="thread" class="thread" aria-live="polite"></div>
+    </section>
+
+    <aside class="col-side">
+      <section class="panel" id="week"></section>
+      <section class="panel" id="weight"></section>
+      <section class="panel" id="foods"></section>
+    </aside>
+  </main>
+
+  <div class="selectbar" id="selectbar" hidden>
+    <div class="selectbar-row">
+      <span class="sel-count num" id="selCount"></span>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="selCancel">Cancel</button>
+      <button class="btn primary" type="button" id="selSave">Save as meal</button>
+    </div>
+  </div>
+
+  <form class="composer" id="composer" autocomplete="off">
+    <div class="quick" id="quick" aria-label="Saved foods"></div>
+    <div class="previews" id="previews"></div>
+    <div class="composer-row">
+      <label class="icon-btn" title="Take a photo" aria-label="Take a photo">
+        <input type="file" accept="image/*" capture="environment" id="cameraInput" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </label>
+      <label class="icon-btn" title="Add pictures" aria-label="Add pictures">
+        <input type="file" accept="image/*" multiple id="fileInput" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-width="1.6" d="M4 16l5-5 4 4 2-2 5 5"/><circle cx="15.5" cy="9" r="1.5" fill="currentColor"/></svg>
+      </label>
+      <textarea id="text" rows="1" placeholder="What did you eat?"></textarea>
+      <button class="send" id="send" type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M4 12l16-8-6 16-2-7z"/></svg>
+      </button>
+    </div>
+  </form>
+
+  <dialog id="dialog"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

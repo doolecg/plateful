@@ -1,0 +1,32 @@
+services:
+  larder:
+    build: .
+    image: larder:local
+    container_name: larder
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/London}
+      # One of these two signs Larder in to Claude (see SETUP.md)
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LARDER_PASSWORD: ${LARDER_PASSWORD:-}
+    ports:
+      - "${LARDER_PORT:-8080}:8080"
+    volumes:
+      - ./data:/data
+
+  # Only for an install on the open internet: `docker compose --profile cloud up -d`.
+  # Caddy gets a free HTTPS certificate for LARDER_DOMAIN and passes traffic to Larder.
+  caddy:
+    image: caddy:2.10
+    profiles: [cloud]
+    restart: unless-stopped
+    environment:
+      LARDER_DOMAIN: ${LARDER_DOMAIN:-}
+    command: caddy reverse-proxy --from ${LARDER_DOMAIN:-localhost} --to larder:8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/caddy:/data
+    depends_on: [larder]
