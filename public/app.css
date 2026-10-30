@@ -1158,7 +1158,7 @@ tr.is-error td:last-child { color: var(--tomato); }
   .droptray { left: 50%; right: auto; transform: translateX(-50%); width: min(720px, 60vw); border: 1px solid var(--rule); border-radius: var(--radius) var(--radius) 0 0; }
   .selectbar-row { max-width: 720px; }
 }
-/* 1500px and up (Dayle's layout, 30 Oct): the day's meals on the left, the chat next to them,
+/* 1500px and up: the day's meals on the left, the chat next to them,
    then on the right the days along the top, four small boxes for today, macros, the week and
    weight, and Quick add (Recent, Meals, Foods, Plan) filling the rest */
 .hm-title { display: none; }
