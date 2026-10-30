@@ -8,6 +8,7 @@ import { hashPin, validPin, checkPin, startSession, endSession, requireProfile, 
 import { parseFood, ParseError } from './parse.js';
 import { aiInfo } from './ai.js';
 import { mealRoutes, mealForHour } from './meals.js';
+import { planRoutes } from './plan.js';
 import { UNITS, formatQuantity, withGrams } from '../public/units.js';
 import { localDate, localTime, weekOf, addDays } from './dates.js';
 import { NUTRIENTS, FOOD_DIR, matchLocally, lookupBarcode, searchOnline, searchLocal, bestMatch, nutrientsFor, saveLabel, saveProduct, productLabel } from './fooddb.js';
@@ -160,6 +161,7 @@ app.put('/api/pin', (req, res) => {
 /* ---------- Everything below is scoped to the signed-in profile ---------- */
 
 mealRoutes(app);
+planRoutes(app);
 
 app.get('/api/summary', (req, res) => {
   const pid = req.profile.id;

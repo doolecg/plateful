@@ -142,3 +142,57 @@ export async function parseFood({ text, images, savedFoods, products = [], local
   }
   throw new ParseError(`${provider.label} didn’t send back anything I could read, twice. Try again, or describe it differently.`);
 }
+
+const PLAN_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['ideas', 'note'],
+  properties: {
+    ideas: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['meal', 'name', 'detail', 'grams', 'kcal', 'protein', 'carbs', 'fat'],
+        properties: {
+          meal: { type: 'string', enum: MEALS },
+          name: { type: 'string' },
+          detail: { type: 'string' },
+          grams: { type: 'number' },
+          kcal: { type: 'number' },
+          protein: { type: 'number' },
+          carbs: { type: 'number' },
+          fat: { type: 'number' },
+        },
+      },
+    },
+    note: { type: 'string' },
+  },
+};
+
+const PLAN_SYSTEM = `You plan the rest of a UK user's day so they stay within their calories.
+
+You get the calories and protein they have left, the meals still to come, and foods they eat often. Suggest two ideas for each meal still to come, using ordinary UK supermarket food and portions, leaning on the foods they already eat. Keep each meal's kcal so that one idea per meal adds up to no more than the calories left, and favour protein when protein is still needed.
+
+name is short ("Chicken stir-fry with rice"); detail lists the parts and amounts in one line ("150 g chicken breast, 75 g dry rice, mixed veg, 1 tsp oil"). grams is the whole portion's weight. Round kcal to whole numbers and macros to one decimal place. note: one short sentence in British English, or empty.`;
+
+// Ideas for the meals still to come, only when someone asks for them
+export async function planIdeas({ left, proteinLeft, meals, usual, modelMode }) {
+  const problem = provider.ready();
+  if (problem) throw new ParseError(`Plateful’s AI (${provider.label}) isn’t set up yet, so it can’t suggest ideas. Your own past meals still show.`);
+  const text = `Calories left today: ${left} kcal\nProtein still to eat: ${proteinLeft > 0 ? `${proteinLeft} g` : 'none, goal reached'}\nMeals still to come: ${meals.join(', ')}\nFoods they eat often: ${usual.join('; ') || '(none yet)'}`;
+  const prompt = provider.nativeSchema ? text : `${text}\n\nReply with only a JSON object, no other text, matching this JSON Schema:\n${JSON.stringify(PLAN_SCHEMA)}`;
+  const model = pickModel(modelMode, false);
+  let reply;
+  try {
+    reply = await provider.ask({ system: PLAN_SYSTEM, prompt, images: [], model, schema: PLAN_SCHEMA });
+  } catch (err) {
+    if (err instanceof AiError) throw new ParseError(err.message);
+    throw err;
+  }
+  const out = reply.json ?? extractJson(reply.text);
+  if (!Array.isArray(out?.ideas)) throw new ParseError(`${provider.label} didn’t send back any ideas. Try again in a moment.`);
+  const ideas = out.ideas.filter((x) => x && typeof x.name === 'string' && MEALS.includes(x.meal) && Number.isFinite(Number(x.kcal)))
+    .map((x) => ({ ...x, detail: String(x.detail ?? ''), ...Object.fromEntries(['grams', 'kcal', 'protein', 'carbs', 'fat'].map((k) => [k, Math.max(0, Number(x[k]) || 0)])) }));
+  return { ideas, note: typeof out.note === 'string' ? out.note : '', model: model || provider.label };
+}

@@ -266,13 +266,13 @@ function renderHero() {
   const over = left < 0;
   const hero = $('#hero');
   hero.className = `hero${over ? ' over' : ''}`;
-  hero.innerHTML = `
+  hero.innerHTML = `<div class="hero-kcal">
     <div class="hero-top">
       <div class="big num" aria-label="${n(Math.abs(left))} kcal ${over ? 'over' : 'left'}">${n(Math.abs(left))}<small>kcal ${over ? 'over' : 'left'}</small></div>
       <div class="hero-of num">${n(totals.kcal)} of ${n(target)}${flex ? '<span class="flex-tag">Flex day</span>' : ''}</div>
     </div>
-    <div class="bar"><span style="width:${Math.min(100, (totals.kcal / target) * 100)}%"></span></div>
-    <div class="mbars">${macroBars(totals, state.settings)}</div>`;
+    <div class="bar"><span style="width:${Math.min(100, (totals.kcal / target) * 100)}%"></span></div></div>
+    <div class="hero-macros"><h2 class="hm-title">Macros</h2><div class="mbars">${macroBars(totals, state.settings)}</div></div>`;
 }
 
 const PLUS = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
@@ -324,7 +324,7 @@ function itemHtml(e) {
       <span class="item-name">${esc(e.name)}</span><span class="item-kcal num">${n(e.kcal)}</span>
       <span class="item-meta num">${brand}${amountText(e)}</span>
     </button>
-    ${e.needs_label && !selected.size ? `<label class="label-chip" title="It’s an estimate until Plateful has the label"><input type="file" accept="image/*" capture="environment" data-labelfor="${e.id}" hidden>Add label photo</label>` : ''}
+    ${e.needs_label && !selected.size ? `<button type="button" class="label-chip" data-edit="${e.id}" title="It’s an estimate until Plateful has the label">Add label photo</button>` : ''}
   </li>`;
 }
 
@@ -378,8 +378,9 @@ function itemSheet(e) {
       <button class="icon-btn" type="button" data-closesheet aria-label="Close">${CLOSE}</button>
     </header>
     <div class="sheet-body">
-      ${e.needs_label ? `<div class="need-label"><p>Plateful hasn’t got this one’s label yet, so the numbers are the AI’s estimate. A photo of the nutrition label fixes it now and every time after.</p>
-        <label class="btn primary"><input type="file" accept="image/*" capture="environment" data-labelfor="${e.id}" data-paste hidden>Add label photo</label></div>` : ''}
+      ${e.needs_label ? `<div class="need-label"><p>Plateful hasn’t got this one’s label yet, so the numbers are AI’s estimate. A photo of the nutrition label fixes it now and every time after.</p>
+        <div class="photo-btns"><label class="btn primary"><input type="file" accept="image/*" capture="environment" data-labelfor="${e.id}" hidden>${CAMERA}Take label photo</label>
+        <label class="btn"><input type="file" accept="image/*" data-labelfor="${e.id}" data-paste hidden>${PICTURES}From pictures</label></div></div>` : ''}
       <div class="grid">${amountHtml(e)}</div>
       <fieldset class="meal-pick"><legend>Meal</legend>
         ${MEALS.map((m) => `<label><input type="radio" name="meal" value="${m}"${m === e.meal ? ' checked' : ''}><span>${SHORT_MEALS[m]}</span></label>`).join('')}
@@ -722,6 +723,7 @@ function openSettings() {
 
 const SEARCH = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const CAMERA = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+const PICTURES = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 16l5-5 4 4 2-2 5 5"/><circle cx="15.5" cy="9" r="1.5" fill="currentColor"/></svg>';
 const LABEL = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 8h8M8 12h8M8 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 const adding = { meal: 'snacks', tab: 'recent', q: '', recent: [], products: [], online: false, rows: [], seq: 0 };
 const terms = (q) => q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -745,8 +747,10 @@ function addSheet(meal) {
       <div class="photo-btns">
         <label class="btn"><input type="file" accept="image/*" capture="environment" data-addphoto="food" data-paste hidden>${CAMERA}Photo of food</label>
         <label class="btn"><input type="file" accept="image/*" capture="environment" data-addphoto="label" hidden>${LABEL}Photo of label</label>
+        <label class="btn"><input type="file" accept="image/*" multiple data-addphoto="food" hidden>${PICTURES}Food from pictures</label>
+        <label class="btn"><input type="file" accept="image/*" multiple data-addphoto="label" hidden>${PICTURES}Label from pictures</label>
       </div>
-      <p class="small hint photo-alt"><label class="link-btn"><input type="file" accept="image/*" data-addphoto="food" hidden>Use a picture you already have</label><span class="hide-touch"> or paste one with Ctrl+V</span></p>
+      <p class="small hint photo-alt hide-touch">Or paste a picture with Ctrl+V.</p>
       <div class="seg-tabs" role="tablist" aria-label="Where to look">
         ${[['recent', 'Recent'], ['foods', 'Saved foods'], ['meals', 'Meals']].map(([k, l]) => `<button type="button" role="tab" data-addtab="${k}">${l}</button>`).join('')}
       </div>
@@ -856,14 +860,15 @@ function askPlateful() {
   sendMessage(text, []);
 }
 
-async function addPhoto(kind, file) {
+// Up to five food pictures go in one message; a label can be up to three (front, back, the table)
+async function addPhoto(kind, files) {
   const meal = adding.meal;
-  const image = await shrink(file);
+  const images = await Promise.all([...files].slice(0, kind === 'food' ? 5 : 3).map(shrink));
   $('#dialog').close();
-  if (kind === 'food') return sendMessage(`${adding.q ? `${adding.q} ` : ''}for ${meal === 'snacks' ? 'a snack' : meal}`, [image]);
+  if (kind === 'food') return sendMessage(`${adding.q ? `${adding.q} ` : ''}for ${meal === 'snacks' ? 'a snack' : meal}`, images);
   toast('Reading the label…');
   try {
-    const r = await api('/api/fooddb/from-label', { method: 'POST', body: { images: [image] } });
+    const r = await api('/api/fooddb/from-label', { method: 'POST', body: { images } });
     $('#toast').hidden = true;
     customFood({ product: r.product, meal });
   } catch (err) { toast(err.message, 'error'); }
@@ -895,14 +900,103 @@ async function renderQuickPanel() {
   else list = state.foods.map((f) => row('quick', f, f.name, `${f.per === 1 ? '1' : f.per} ${esc(f.unit)}`, f.kcal)).join('')
     + (qp.products || []).slice(0, 15).map((p) => row('product', p, productName(p), p.serving_g ? `${r1(p.serving_g)} g serving` : 'per 100 g', p.serving_g ? (p.kcal * p.serving_g) / 100 : p.kcal)).join('');
   qp.rows = rows;
+  const tabs = `<div class="seg-tabs" role="tablist" aria-label="Quick add from">
+      ${[['recent', 'Recent'], ['meals', 'Meals'], ['foods', 'Foods'], ['plan', 'Plan']].map(([k, l]) => `<button type="button" role="tab" data-qptab="${k}" aria-selected="${qp.tab === k}">${l}</button>`).join('')}
+    </div>`;
+  if (qp.tab === 'plan') {
+    el.innerHTML = `<div class="panel-head"><h2>Rest of today</h2></div>${tabs}<div class="qp-list qp-plan" id="planPanel"></div>`;
+    return renderPlan();
+  }
   const empty = { recent: 'Nothing logged in the last two months yet.', meals: 'No saved meals yet. “Save as a meal” sits by any meal with two or more things in it.', foods: 'No saved foods yet.' }[qp.tab];
   el.innerHTML = `<div class="panel-head"><h2>Quick add</h2>
       <label class="qp-meal"><span class="sr-only">Add to</span>${mealSelect(qp.meal)}</label></div>
-    <div class="seg-tabs" role="tablist" aria-label="Quick add from">
-      ${[['recent', 'Recent'], ['meals', 'My meals'], ['foods', 'Saved foods']].map(([k, l]) => `<button type="button" role="tab" data-qptab="${k}" aria-selected="${qp.tab === k}">${l}</button>`).join('')}
-    </div>
+    ${tabs}
     ${list ? `<ul class="add-ul qp-list">${list}</ul>` : `<p class="add-empty">${empty}</p>`}`;
   $('select', el).addEventListener('change', (e) => { qp.meal = e.target.value; renderQuickPanel(); });
+}
+
+/* ---------- The rest of today, the Plan tab of Quick add ----------
+   Meals you've had before that fit what's left, worked out on the server for free. Ideas from
+   the AI are a button, so they only cost a message when you ask. */
+
+const plan = { key: null, data: null, pick: {}, ideas: null, busy: false };
+const PLAN_LEFT = () => state.day.target - state.day.totals.kcal;
+
+async function renderPlan() {
+  const el = $('#planPanel');
+  if (!el || !state) return;
+  const left = Math.round(PLAN_LEFT());
+  const logged = MEALS.filter((m) => state.day.entries.some((e) => e.meal === m)).join();
+  const key = `${state.profile.id}|${date}|${left}|${logged}`;
+  if (plan.key !== key) {
+    Object.assign(plan, { key, pick: {}, ideas: null });
+    try {
+      plan.data = await api(`/api/plan?date=${date}&hour=${new Date().getHours()}&left=${left}`);
+    } catch (err) {
+      el.innerHTML = `<p class="small">${esc(err.message)}</p>`;
+      return;
+    }
+    if (plan.key !== key) return;
+  }
+  const { meals } = plan.data;
+  if (left <= 0 || !meals.length) {
+    el.innerHTML = `<p class="add-empty">${left <= 0 ? 'Today’s calories are used up. Water, tea and black coffee from here.' : 'Every meal has something in it today. Snacks still fit if you’re hungry.'}</p>`;
+    return;
+  }
+  const pct = (x) => `P ${Math.round(x.protein || 0)} g`;
+  el.innerHTML = `<p class="small plan-lede"><b class="num">${n(left)} kcal left.</b> From meals you’ve had before, sized to what’s left. Add one and the rest re-plans.</p>
+    <div class="plan-list">${meals.map((m) => {
+      const i = (plan.pick[m.meal] || 0) % Math.max(m.options.length, 1);
+      const o = m.options[i];
+      return `<section class="plan-meal">
+        <div class="pm-head"><h3>${MEAL_NAMES[m.meal]}</h3><span class="small num">about ${n(m.budget)} kcal</span></div>
+        ${o ? `<div class="pm-opt">
+            <div class="pm-name">${esc(o.kind === 'preset' ? o.name : o.items.slice(0, 3).join(', ') + (o.items.length > 3 ? ` +${o.items.length - 3}` : ''))}</div>
+            <div class="small num">${n(o.kcal)} kcal · ${pct(o)} · ${o.kind === 'preset' ? `saved meal: ${esc(o.items.slice(0, 3).join(', '))}` : o.times > 1 ? `had ${o.times} times, last ${fmtDay(o.last, { day: 'numeric', month: 'short' })}` : `had it ${fmtDay(o.last, { day: 'numeric', month: 'short' })}`}</div>
+            <div class="pm-actions"><button class="btn" data-planadd="${m.meal}">${PLUS}Add to ${SHORT_MEALS[m.meal]}</button>
+              ${m.options.length > 1 ? `<button class="link-btn" data-plannext="${m.meal}">Something else (${i + 1} of ${m.options.length})</button>` : ''}</div>
+          </div>`
+          : `<p class="small">Nothing logged for ${MEAL_NAMES[m.meal].toLowerCase()} in the last two months to go on.</p>`}
+      </section>`;
+    }).join('')}
+    ${plan.ideas ? `<section class="plan-ideas"><h3>Ideas from ${esc(modelName(plan.ideas.model))}</h3>
+      ${plan.ideas.ideas.length ? `<ul class="add-ul">${plan.ideas.ideas.map((x, j) => `<li><button type="button" class="add-row" data-planidea="${j}">
+        <span class="ar-text"><span class="ar-name">${esc(x.name)}</span><span class="ar-detail">${MEAL_NAMES[x.meal]} · ${esc(x.detail)}</span></span>
+        <span class="ar-kcal num">${n(x.kcal)}</span><span class="ar-plus" aria-hidden="true">${PLUS}</span><span class="sr-only">Add</span></button></li>`).join('')}</ul>` : ''}
+      ${plan.ideas.note ? `<p class="small">${esc(plan.ideas.note)}</p>` : ''}</section>` : ''}
+    </div>
+    <button type="button" class="btn wide-btn plan-ask" data-planideas ${plan.busy ? 'disabled' : ''}>${plan.busy ? 'Thinking…' : plan.ideas ? 'Different ideas' : 'Ideas for something new'}</button>
+    <p class="small plan-cost">Costs one short message to the AI. The list above is free.</p>`;
+}
+
+async function planAdd(meal) {
+  const m = plan.data.meals.find((x) => x.meal === meal);
+  const o = m.options[(plan.pick[meal] || 0) % m.options.length];
+  const r = o.kind === 'preset'
+    ? await api(`/api/presets/${o.id}/add`, { method: 'POST', body: { date, meal } })
+    : await api('/api/entries/copy', { method: 'POST', body: { ids: o.ids, date, meal } });
+  lastAdd = { ids: r.ids, text: `Added ${o.kind === 'preset' ? o.name : `${o.items.length} item${o.items.length > 1 ? 's' : ''}`} to ${MEAL_NAMES[meal]}` };
+  await load();
+}
+
+async function planIdeas() {
+  plan.busy = true;
+  renderPlan();
+  try {
+    const goal = goalFor('protein', state.settings);
+    plan.ideas = await api('/api/plan/ideas', { method: 'POST', body: { date, hour: new Date().getHours(), left: Math.round(PLAN_LEFT()), protein_left: goal - state.day.totals.protein } });
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    plan.busy = false;
+    renderPlan();
+  }
+}
+
+async function planAddIdea(x) {
+  const r = await api('/api/entries', { method: 'POST', body: { name: x.name, date, meal: x.meal, quantity: '1 portion', grams: x.grams, kcal: x.kcal, protein: x.protein, carbs: x.carbs, fat: x.fat, origin: `Meal plan idea: ${x.detail}` } });
+  lastAdd = { ids: [r.id], text: `Added ${x.name} to ${MEAL_NAMES[x.meal]}` };
+  await load();
 }
 
 /* ---------- A new food, typed in or read off a label ---------- */
@@ -2175,7 +2269,7 @@ document.addEventListener('change', async (e) => {
 });
 document.addEventListener('change', (e) => {
   const kind = e.target.dataset?.addphoto;
-  if (kind && e.target.files?.[0]) addPhoto(kind, e.target.files[0]).catch((err) => toast(err.message, 'error'));
+  if (kind && e.target.files?.length) addPhoto(kind, e.target.files).catch((err) => toast(err.message, 'error'));
 });
 $('#cameraInput').addEventListener('change', (e) => { addFiles(e.target.files); e.target.value = ''; });
 // A pasted image goes to the photo box that's open (the webcam, a sheet's label or food photo,
@@ -2297,13 +2391,17 @@ $('#gate').addEventListener('submit', async (e) => {
 });
 
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-qpick],[data-qptab],[data-addto],[data-addtab],[data-addpick],[data-addonline],[data-askadd],[data-newfood],[data-addcopy],[data-closesheet],[data-undo],[data-dismissadd],[data-openchat],[data-closechat],[data-weighin],[data-savepreset],[data-presets],[data-clearthread],[data-editproduct],[data-fexport],[data-fadd],[data-fsrc],[data-view],[data-sweek],[data-usepreset],[data-editpreset],[data-copyfrom],[data-edit],[data-delete],[data-savefood],[data-retry],[data-dismiss],[data-day],[data-delfood],[data-delweight],[data-unpick],[data-info],[data-explain],[data-pickday],[data-photos],[data-msgopen],[data-opensettings]');
+  const t = e.target.closest('[data-planadd],[data-plannext],[data-planideas],[data-planidea],[data-qpick],[data-qptab],[data-addto],[data-addtab],[data-addpick],[data-addonline],[data-askadd],[data-newfood],[data-addcopy],[data-closesheet],[data-undo],[data-dismissadd],[data-openchat],[data-closechat],[data-weighin],[data-savepreset],[data-presets],[data-clearthread],[data-editproduct],[data-fexport],[data-fadd],[data-fsrc],[data-view],[data-sweek],[data-usepreset],[data-editpreset],[data-copyfrom],[data-edit],[data-delete],[data-savefood],[data-retry],[data-dismiss],[data-day],[data-delfood],[data-delweight],[data-unpick],[data-info],[data-explain],[data-pickday],[data-photos],[data-msgopen],[data-opensettings]');
   if (!t) return;
   const d = t.dataset;
   try {
     if (d.addto) addSheet(d.addto);
     else if (d.addtab) { adding.tab = d.addtab; refreshAdd(); }
     else if (d.addpick) await pickAdd(adding.rows[Number(d.addpick.split(':')[1])], adding.meal);
+    else if (d.planadd) await planAdd(d.planadd);
+    else if (d.plannext) { plan.pick[d.plannext] = (plan.pick[d.plannext] || 0) + 1; renderPlan(); }
+    else if (d.planideas !== undefined) await planIdeas();
+    else if (d.planidea) await planAddIdea(plan.ideas.ideas[Number(d.planidea)]);
     else if (d.qpick) await pickAdd(qp.rows[Number(d.qpick)], qp.meal);
     else if (d.qptab) { qp.tab = d.qptab; renderQuickPanel(); }
     else if (d.addonline !== undefined) { adding.online = true; refreshAdd(); }

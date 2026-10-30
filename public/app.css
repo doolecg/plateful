@@ -727,6 +727,7 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 label.btn.busy { opacity: .6; pointer-events: none; }
 .need-label { border-left: 3px solid var(--mustard); padding: var(--s2) var(--s3); background: var(--paper); border-radius: 0 6px 6px 0; display: grid; gap: var(--s2); justify-items: start; }
 .need-label p { margin: 0; font-size: 14px; }
+.need-label .photo-btns { width: 100%; }
 .thumbs { display: flex; gap: var(--s2); flex-wrap: wrap; }
 table.nutr { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.nutr th, table.nutr td { padding: 5px 0; border-bottom: 1px solid var(--rule); text-align: right; font-weight: 400; }
@@ -1019,7 +1020,7 @@ tr.is-error td:last-child { color: var(--tomato); }
 .label-chip {
   position: absolute; right: var(--s1); bottom: 9px; display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
   border-radius: 13px; background: color-mix(in srgb, var(--mustard) 18%, var(--card)); color: color-mix(in srgb, var(--mustard) 60%, var(--ink));
-  font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  font: 600 12px var(--sans); border: 0; cursor: pointer; white-space: nowrap;
 }
 .label-chip:hover { background: color-mix(in srgb, var(--mustard) 30%, var(--card)); }
 .label-chip.busy { opacity: .6; pointer-events: none; }
@@ -1157,6 +1158,46 @@ tr.is-error td:last-child { color: var(--tomato); }
   .droptray { left: 50%; right: auto; transform: translateX(-50%); width: min(720px, 60vw); border: 1px solid var(--rule); border-radius: var(--radius) var(--radius) 0 0; }
   .selectbar-row { max-width: 720px; }
 }
+/* 1500px and up (Dayle's layout, 30 Oct): the day's meals on the left, the chat next to them,
+   then on the right the days along the top, four small boxes for today, macros, the week and
+   weight, and Quick add (Recent, Meals, Foods, Plan) filling the rest */
+.hm-title { display: none; }
+@media (min-width: 1500px) {
+  .layout { grid-template-columns: minmax(360px, 1.2fr) minmax(320px, 1fr) minmax(560px, 1.6fr);
+    grid-template-areas: "main chat strip" "main chat side"; grid-template-rows: auto 1fr; }
+  .col-main { grid-row: 1 / span 2; }
+  .day-title { margin-top: 0; }
+  .weekstrip { align-self: start; background: var(--card); border: 1px solid var(--rule); border-radius: 16px; padding: 4px; }
+  .col-side { grid-area: side; grid-row: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "kcal week" "macros weight" "quick quick";
+    gap: var(--s3); max-height: calc(100dvh - 89px - var(--s5)); }
+  .col-side #hero { display: contents; }
+  .hero-kcal, .hero-macros { background: var(--card); border: 1px solid var(--rule); border-radius: 16px; padding: var(--s4); min-width: 0; }
+  .hero-kcal { grid-area: kcal; }
+  .hero-macros { grid-area: macros; }
+  .hm-title { display: block; font: 600 19px/1.2 var(--serif); margin: 0 0 var(--s3); }
+  .hero .big { font-size: 38px; }
+  .col-side #week { grid-area: week; }
+  .col-side #weight { grid-area: weight; }
+  .col-side #quickPanel { grid-area: quick; }
+  /* Small box: the numbers and the bar; the chart lives on Stats */
+  #weight .wchart { display: none; }
+  .col-side .panel { padding: var(--s4); }
+}
+.plan-lede { margin: 0 0 var(--s3); }
+.plan-list { display: grid; gap: var(--s3); }
+.plan-meal { border-top: 1px solid var(--rule); padding-top: var(--s3); }
+.pm-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); }
+.pm-head h3 { margin: 0; font: 600 16px var(--serif); }
+.pm-opt { margin-top: var(--s2); background: var(--paper); border-radius: 12px; padding: var(--s3); }
+.pm-name { font-weight: 600; }
+.pm-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin-top: var(--s2); }
+.pm-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.plan-ideas { border-top: 1px solid var(--rule); padding-top: var(--s3); }
+.plan-ideas h3 { margin: 0 0 var(--s2); font: 600 16px var(--serif); }
+.plan-ask { margin-top: var(--s4); }
+.plan-cost { margin: var(--s2) 0 0; text-align: center; }
+
 .chat-btn { display: none; }
 @media (max-width: 1279px) { .composer-row .chat-btn { display: inline-grid; } }
 
