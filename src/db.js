@@ -90,8 +90,19 @@ export const DEFAULT_SETTINGS = {
   // 'auto' = the first day of the week that goes over the daily target becomes the flex day
   flex_day: 'auto',
   goal_kg: '',
-  // 'auto' = Haiku for typed messages, Sonnet for photos; or 'sonnet' / 'haiku' for everything
+  // 'auto' = the text model for typed messages, the photo model for photos; or 'sonnet' / 'haiku' for everything
   model_mode: 'auto',
+  // Optional daily goals in grams; empty = use the UK reference intake from food labels
+  protein_g: '',
+  carbs_g: '',
+  sugars_g: '',
+  fat_g: '',
+  sat_fat_g: '',
+  fibre_g: '',
+  salt_g: '',
+  // Colours for this person: a scheme, and auto (follow the device), light or dark
+  scheme: 'larder',
+  mode: 'auto',
 };
 
 const hasTable = (name) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
@@ -176,7 +187,53 @@ if (db.pragma('user_version', { simple: true }) < 4) {
     db.pragma('user_version = 4');
   })();
 }
+// user_version 5 = more nutrients and a household food list. Fibre, sugars, saturated fat and salt
+// are grams like the macros, NULL where an item came from before Plateful tracked them.
+// food_db holds products looked up on Open Food Facts or read off a label, per 100 g, shared by everyone.
+if (db.pragma('user_version', { simple: true }) < 5) {
+  db.transaction(() => {
+    for (const t of ['entries', 'preset_items', 'foods']) {
+      for (const col of ['fibre', 'sugars', 'sat_fat', 'salt']) db.exec(`ALTER TABLE ${t} ADD COLUMN ${col} REAL`);
+    }
+    db.exec(`
+      ALTER TABLE entries ADD COLUMN product_id INTEGER;
+      ALTER TABLE entries ADD COLUMN needs_label INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE entries ADD COLUMN label_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL;
+      ALTER TABLE messages ADD COLUMN relabel_entry_id INTEGER;
+      CREATE TABLE food_db (
+        id         INTEGER PRIMARY KEY,
+        name       TEXT NOT NULL,
+        brand      TEXT NOT NULL DEFAULT '',
+        barcode    TEXT UNIQUE,
+        source     TEXT NOT NULL,
+        kcal       REAL NOT NULL,
+        fat        REAL, carbs REAL, protein REAL, fibre REAL, sugars REAL, sat_fat REAL, salt REAL,
+        serving_g  REAL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE (name, brand)
+      );
+    `);
+    db.pragma('user_version = 5');
+  })();
+}
+// user_version 6 changed nothing here (it set a model choice in the hosted copy); kept so the numbering matches
+if (db.pragma('user_version', { simple: true }) < 6) db.pragma('user_version = 6');
+// user_version 7 = "What you sent" can be cleared without losing the photos and notes behind the items,
+// and the food list remembers who added a product and can hold a photo of its label
+if (db.pragma('user_version', { simple: true }) < 7) {
+  db.transaction(() => {
+    db.exec(`
+      ALTER TABLE messages ADD COLUMN cleared INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE food_db ADD COLUMN added_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL;
+      ALTER TABLE food_db ADD COLUMN photo TEXT;
+      ALTER TABLE food_db ADD COLUMN pack_g REAL;
+    `);
+    db.pragma('user_version = 7');
+  })();
+}
 db.pragma('foreign_keys = ON');
+
+const GOAL_KEYS = ['protein_g', 'carbs_g', 'sugars_g', 'fat_g', 'sat_fat_g', 'fibre_g', 'salt_g'];
 
 export function getSettings(profileId) {
   const out = { ...DEFAULT_SETTINGS };
@@ -187,6 +244,9 @@ export function getSettings(profileId) {
     flex_day: out.flex_day,
     goal_kg: out.goal_kg === '' ? null : Number(out.goal_kg),
     model_mode: ['auto', 'sonnet', 'haiku'].includes(out.model_mode) ? out.model_mode : 'auto',
+    ...Object.fromEntries(GOAL_KEYS.map((k) => [k, out[k] === '' || !(Number(out[k]) > 0) ? null : Number(out[k])])),
+    scheme: ['larder', 'sage', 'slate', 'plum', 'harbour', 'rose', 'graphite', 'saffron', 'lavender'].includes(out.scheme) ? out.scheme : 'larder',
+    mode: ['auto', 'light', 'dark'].includes(out.mode) ? out.mode : 'auto',
   };
 }
 

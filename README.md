@@ -29,7 +29,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Plateful on a desktop: today's total, the meals logged so far, the week's bars and the weight trend" width="100%">
+  <img src="docs/images/hero.png" alt="Plateful on a desktop: the chat, today's meals, what's left, the week and quick add" width="100%">
 </p>
 
 ---
@@ -71,14 +71,20 @@ The installer asks which AI to use and where you'll use Plateful, then builds an
 - **Weight trend.** Log a weigh-in by typing `w 92.4` or `14st 8lb`. Plateful fits a trend over the last eight weeks and tells you roughly when you'll reach your goal.
 - **Presets and suggestions.** Save a meal you have often, or long-press several items and save them as a meal. Plateful suggests your usual breakfast in the morning from your own history, without calling the AI.
 - **Installs like an app.** Add it to your phone's home screen. Light and dark themes follow your phone's.
+- **Add to any meal in a tap.** Each meal's Add button opens a sheet with what you've had recently, your saved foods and saved meals, and a search box that also takes plain words. If nothing matches, ask the AI, take a photo, or make a new food by hand.
+- **A shared food list.** Branded products are looked up in your household's own list first, then on Open Food Facts by barcode or name. A label you photograph is read once and saved per 100 g, so next time it costs no tokens. The Foods page lets you edit, import and export the list as JSON.
+- **Camera and paste on any screen.** On a computer the camera buttons open your webcam, and Ctrl+V drops a copied image into whichever photo box is open.
+- **Stats.** Calories by day, nutrients against your goals, where the week's calories came from, your biggest foods, weekly averages and the weight trend, laid out to fit a big monitor without scrolling.
+- **Your own goals.** Daily kcal plus optional goals for protein, carbs, sugars, fat, saturates, fibre and salt. Anything you leave empty uses the reference intake printed on UK labels.
+- **Nine colour schemes**, each in light and dark.
 - **Optional household password and HTTPS** for installs on the open internet.
 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/images/phone-day.png" alt="Today's diary on a phone, with suggestion chips above the message box" width="24%">
+  <img src="docs/images/phone-day.png" alt="Today's diary on a phone: the week's rings, what's left and each meal" width="24%">
   <img src="docs/images/phone-info.png" alt="The info panel explaining where an item's numbers came from" width="24%">
-  <img src="docs/images/phone-edit.png" alt="Editing an item: amount, unit picker and grams" width="24%">
+  <img src="docs/images/phone-edit.png" alt="Tapping a food: amount, unit, meal and its nutrients" width="24%">
   <img src="docs/images/phone-weight.png" alt="Weight chart with the projected goal date" width="24%">
 </p>
 <p align="center">
@@ -91,16 +97,18 @@ The people and food in these screenshots are made up. Run `npm run demo` against
 
 ## How it works
 
-- `src/parse.js` builds the request: your text, any photos (shrunk in the browser first), your saved foods and the time of day. It asks for structured JSON back, with each item's amount, unit, weight in grams, kcal, macros and source. It checks the reply against the schema and asks once more, saying what was wrong, if it doesn't fit.
+- `src/parse.js` builds the request: your text, any photos (shrunk in the browser first), your saved foods, matching products from the food list and the time of day. It asks for structured JSON back, with each item's amount, unit, weight in grams, kcal, nutrients, brand, barcode and source. It checks the reply against the schema and asks once more, saying what was wrong, if it doesn't fit.
 - `src/ai.js` is the only part that talks to an AI. Each provider is a few lines. Claude Code runs as `claude -p` with every tool switched off. Codex runs as `codex exec` in a read-only sandbox with `--output-schema`. Gemini CLI runs in headless JSON mode. opencode uses `opencode run -f`. Ollama goes through its `/api/chat` with a JSON schema. Other servers go through `/chat/completions`. Anything else is a shell command with placeholders.
+- `src/fooddb.js` keeps the household food list per 100 g, matches typed amounts of known foods without calling the AI, and looks products up on Open Food Facts.
 - `src/server.js` stores entries in SQLite and does all the sums. `src/meals.js` handles presets, copying and the suggestions, and `public/units.js` holds the unit tables shared by the browser and the server.
 - The front end is plain JavaScript with no build step, served by the same Express app.
 
 ## Privacy: what leaves your server
 
-Plateful has no analytics, tracking or account of its own. The only outside connection it makes is to the AI you choose:
+Plateful has no analytics, tracking or account of its own. It only connects to two outside services: the AI you choose, and Open Food Facts.
 
-- **When you send a message**, Plateful sends that message's text and photos, the names and values of your saved foods, and the local time to your AI, under your own account and that provider's terms. With Ollama or another local server, nothing leaves your network at all. Nothing is sent when you tap saved foods, presets or suggestions, or when you edit, copy or browse.
+- **When you send a message**, Plateful sends that message's text and photos, the names and values of your saved foods and any matching products from the food list, and the local time to your AI, under your own account and that provider's terms. With Ollama or another local server, nothing leaves your network at all. Nothing is sent when you tap saved foods, presets or suggestions, or when you edit, copy or browse.
+- **When the AI names a branded product** that isn't in your food list yet, Plateful searches [Open Food Facts](https://world.openfoodfacts.org) (a free, open product database) for its name or barcode. Only the product name, brand or barcode is sent, never your diary.
 - **Fonts and scripts** are served by Plateful itself. Pages make no requests to other sites.
 
 Everyone with a profile in your Plateful can see and copy from the other profiles' food logs, but not their weigh-ins or settings. PINs keep a household out of each other's diaries; for anything beyond your home network, set a household password (see [SETUP.md](SETUP.md)).

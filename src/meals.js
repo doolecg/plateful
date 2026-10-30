@@ -5,9 +5,10 @@ import { UNITS, formatQuantity } from '../public/units.js';
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snacks'];
 const isDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const round1 = (n) => Math.round(n * 10) / 10;
-const ITEM_COLS = 'name, quantity, amount, unit, grams, density, each_g, kcal, fat, carbs, protein';
-const ITEM_PARAMS = '@name, @quantity, @amount, @unit, @grams, @density, @each_g, @kcal, @fat, @carbs, @protein';
-const SOURCE_WORDS = { label: 'read from a label', saved: 'a saved food', 'est.': 'Claude’s estimate', manual: 'typed in by hand', preset: 'a preset', copied: 'copied' };
+const ITEM_COLS = 'name, quantity, amount, unit, grams, density, each_g, kcal, fat, carbs, protein, fibre, sugars, sat_fat, salt';
+const ITEM_PARAMS = '@name, @quantity, @amount, @unit, @grams, @density, @each_g, @kcal, @fat, @carbs, @protein, @fibre, @sugars, @sat_fat, @salt';
+const opt = (x) => (x === '' || x == null || !Number.isFinite(Number(x)) ? null : round1(Number(x)));
+const SOURCE_WORDS = { label: 'read from a label', saved: 'a saved food', 'est.': 'Claude’s estimate', db: 'the food list', manual: 'typed in by hand', preset: 'a preset', copied: 'copied' };
 
 // Same slots the app uses when it guesses a meal from the clock
 export const mealForHour = (h) => (h < 11 ? 'breakfast' : h < 15 ? 'lunch' : h >= 17 && h < 22 ? 'dinner' : 'snacks');
@@ -110,11 +111,12 @@ export function mealRoutes(app) {
     if (!preset || !isDate(date)) return res.status(404).json({ error: 'No such preset.' });
     const into = MEALS.includes(meal) ? meal : preset.meal;
     const items = db.prepare(`SELECT ${ITEM_COLS} FROM preset_items WHERE preset_id = ?`).all(preset.id);
+    const added = [];
     db.transaction(() => {
-      for (const i of items) insertEntry.run({ ...i, profile_id: req.profile.id, date, meal: into, source: 'preset', origin: `Preset: ${preset.name}` });
+      for (const i of items) added.push(Number(insertEntry.run({ ...i, profile_id: req.profile.id, date, meal: into, source: 'preset', origin: `Preset: ${preset.name}` }).lastInsertRowid));
       db.prepare('INSERT INTO preset_uses (preset_id, profile_id, date, meal) VALUES (?, ?, ?, ?)').run(preset.id, req.profile.id, date, into);
     })();
-    res.json({ ok: true, added: items.length });
+    res.json({ ok: true, added: items.length, ids: added });
   });
 
   // Replaces a preset's name, meal, sharing and items. Only whoever made a shared preset can unshare it.
@@ -131,6 +133,7 @@ export function mealRoutes(app) {
         : { amount: null, unit: null, quantity: String(i.quantity ?? '').trim() }),
       grams: num(i.grams), density: num(i.density), each_g: num(i.each_g),
       kcal: Math.round(Number(i.kcal) || 0), fat: round1(Number(i.fat) || 0), carbs: round1(Number(i.carbs) || 0), protein: round1(Number(i.protein) || 0),
+      fibre: opt(i.fibre), sugars: opt(i.sugars), sat_fat: opt(i.sat_fat), salt: opt(i.salt),
     }));
     if (!clean.length) return res.status(400).json({ error: 'A preset needs at least one item. Delete it instead if you’re done with it.' });
     let owner = preset.profile_id;
@@ -172,15 +175,16 @@ export function mealRoutes(app) {
     if (!Array.isArray(ids) || !ids.length || !isDate(date)) return res.status(400).json({ error: 'Pick something to copy.' });
     const rows = db.prepare(`SELECT e.meal, e.source, e.origin, e.profile_id, p.name AS who, ${ITEM_COLS.split(', ').map((c) => `e.${c}`).join(', ')}
                              FROM entries e JOIN profiles p ON p.id = e.profile_id WHERE e.id IN (${ids.map(() => '?').join(',')}) ORDER BY e.id`).all(...ids.map(Number));
+    const added = [];
     db.transaction(() => {
       for (const r of rows) {
         // Say where it was copied from, and where that person's numbers came from in the first place
         const first = r.origin || SOURCE_WORDS[r.source] || r.source;
         const from = r.profile_id === req.profile.id ? 'another day' : `${r.who}’s log`;
-        insertEntry.run({ ...r, origin: `Copied from ${from}${first ? `; originally ${first}` : ''}`, kcal: Math.round(r.kcal), fat: round1(r.fat), carbs: round1(r.carbs), protein: round1(r.protein),
-          profile_id: req.profile.id, date, meal: MEALS.includes(meal) ? meal : r.meal, source: 'copied' });
+        added.push(Number(insertEntry.run({ ...r, origin: `Copied from ${from}${first ? `; originally ${first}` : ''}`, kcal: Math.round(r.kcal), fat: round1(r.fat), carbs: round1(r.carbs), protein: round1(r.protein),
+          profile_id: req.profile.id, date, meal: MEALS.includes(meal) ? meal : r.meal, source: 'copied' }).lastInsertRowid));
       }
     })();
-    res.json({ ok: true, added: rows.length });
+    res.json({ ok: true, added: rows.length, ids: added });
   });
 }
